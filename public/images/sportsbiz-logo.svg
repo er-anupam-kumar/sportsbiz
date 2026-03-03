@@ -1,0 +1,14 @@
+<svg width="320" height="88" viewBox="0 0 320 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sbG" x1="8" y1="8" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="72" height="72" rx="18" fill="url(#sbG)"/>
+  <path d="M22 24h36v8H22v-8Zm0 16h36v8H22v-8Zm0 16h24v8H22v-8Z" fill="white" fill-opacity="0.92"/>
+  <circle cx="58" cy="58" r="10" fill="white" fill-opacity="0.96"/>
+  <path d="M58 52l2.2 4.7 5.1.6-3.8 3.6.9 5-4.4-2.4-4.4 2.4.9-5-3.8-3.6 5.1-.6L58 52Z" fill="#DC2626"/>
+  <text x="92" y="38" fill="#1E3A8A" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="30" font-weight="800">SportsBiz</text>
+  <text x="92" y="62" fill="#DC2626" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" letter-spacing="1">AUCTION</text>
+</svg>
