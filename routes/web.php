@@ -28,12 +28,39 @@ use App\Livewire\Team\AuctionRoom;
 use App\Livewire\Team\BidHistory;
 use App\Livewire\Team\Dashboard as TeamDashboard;
 use App\Livewire\Team\SquadView;
+use App\Models\Auction;
+use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    $tournaments = Tournament::query()
+        ->with([
+            'sport:id,name',
+            'auction:id,tournament_id,current_player_id,is_paused,ends_at',
+        ])
+        ->orderByDesc('starts_at')
+        ->orderByDesc('id')
+        ->limit(12)
+        ->get([
+            'id',
+            'sport_id',
+            'name',
+            'status',
+            'starts_at',
+        ]);
+
+    $runningTournamentIds = Auction::query()
+        ->whereNotNull('current_player_id')
+        ->where('is_paused', false)
+        ->pluck('tournament_id')
+        ->all();
+
+    return view('welcome', [
+        'tournaments' => $tournaments,
+        'runningTournamentIds' => $runningTournamentIds,
+    ]);
 });
 
 Route::middleware('guest')->group(function () {

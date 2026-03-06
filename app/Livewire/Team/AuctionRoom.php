@@ -65,8 +65,35 @@ class AuctionRoom extends Component
 
     public function placeBid(AuctionEngine $auctionEngine): void
     {
-        $team = Team::query()->where('user_id', auth()->id())->where('tournament_id', $this->tournamentId)->firstOrFail();
-        $auction = Auction::query()->where('tournament_id', $this->tournamentId)->firstOrFail();
+        $team = Team::query()
+            ->where('user_id', auth()->id())
+            ->where('tournament_id', $this->tournamentId)
+            ->first();
+
+        if (! $team) {
+            $this->error = 'Team profile not found for this tournament.';
+            return;
+        }
+
+        $auction = Auction::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->first();
+
+        if (! $auction || ! $auction->current_player_id) {
+            $this->error = 'No player is currently live for bidding.';
+            return;
+        }
+
+        $playerExists = Player::query()
+            ->whereKey($auction->current_player_id)
+            ->where('tournament_id', $this->tournamentId)
+            ->where('status', 'available')
+            ->exists();
+
+        if (! $playerExists) {
+            $this->error = 'Selected player is not available for bidding right now.';
+            return;
+        }
 
         try {
             $auctionEngine->placeBid($team->id, (int) $auction->current_player_id);

@@ -89,6 +89,52 @@
                     <p class="text-sm text-slate-600 mt-2">Join live bidding rooms and monitor squad composition.</p>
                 </a>
             </section>
+
+            <section class="sb-glass rounded-2xl p-5 md:p-6 space-y-4">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                        <h2 class="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-2">
+                            <i data-lucide="radio-tower" class="w-5 h-5 text-indigo-700"></i>
+                            Current Tournaments & Live Auctions
+                        </h2>
+                        <p class="text-sm text-slate-600 mt-1">Open any tournament auction viewer directly from here.</p>
+                    </div>
+                </div>
+
+                @if(($tournaments ?? collect())->isEmpty())
+                    <div class="rounded-xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-600">No tournaments available yet.</div>
+                @else
+                    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        @foreach($tournaments as $tournament)
+                            @php
+                                $isRunning = in_array($tournament->id, $runningTournamentIds ?? [], true);
+                                $auctionStarted = (bool) ($tournament->auction?->current_player_id);
+                            @endphp
+                            <div class="sb-card p-4 space-y-3">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="text-base font-bold text-slate-900 truncate">{{ $tournament->name }}</div>
+                                        <div class="text-xs text-slate-500">{{ $tournament->sport?->name ?? 'Sport' }}</div>
+                                    </div>
+                                    <span class="text-[11px] px-2 py-1 rounded-full font-semibold {{ $isRunning ? 'bg-emerald-100 text-emerald-700' : ($auctionStarted ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700') }}">
+                                        {{ $isRunning ? 'LIVE' : ($auctionStarted ? 'PAUSED' : 'NOT STARTED') }}
+                                    </span>
+                                </div>
+
+                                <div class="text-xs text-slate-600 space-y-1">
+                                    <div>Status: <span class="font-semibold text-slate-800">{{ strtoupper((string) ($tournament->status ?? 'draft')) }}</span></div>
+                                    <div>Start: <span class="font-semibold text-slate-800">{{ $tournament->starts_at ? $tournament->starts_at->format('d M Y, h:i A') : 'TBD' }}</span></div>
+                                </div>
+
+                                <a href="{{ route('public.auction-viewer', $tournament->id) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white font-semibold sb-btn-primary shadow">
+                                    <i data-lucide="external-link" class="w-4 h-4"></i>
+                                    Open Auction Page
+                                </a>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </section>
         </main>
     </div>
 
