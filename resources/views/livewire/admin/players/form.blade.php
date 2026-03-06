@@ -1,18 +1,19 @@
 <div class="space-y-4">
     <div class="flex items-center justify-between">
-        <h1 class="sb-page-title">Players CRUD</h1>
-        <a href="{{ route('admin.categories') }}" class="px-3 py-2 border border-amber-200 rounded-lg text-amber-700 text-sm">Manage Categories</a>
+        <h1 class="sb-page-title">{{ $editingId ? 'Edit Player' : 'Create Player' }}</h1>
+        <a href="{{ route('admin.players.index') }}" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-700 text-sm">View Players</a>
     </div>
 
     <div class="sb-card p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="sb-section-title">{{ $editingId ? 'Edit Player' : 'Create Player' }}</h2>
+            <h2 class="sb-section-title">Player Form</h2>
             <div class="flex flex-wrap items-center gap-2 text-xs">
                 <span class="sb-action-chip border-slate-200 text-slate-700">Used: {{ $quota['used'] }}</span>
                 <span class="sb-action-chip border-slate-200 text-slate-700">Limit: {{ $quota['limit'] }}</span>
                 <span class="sb-action-chip border-amber-200 text-amber-700">Remaining: {{ $quota['remaining'] }}</span>
             </div>
         </div>
+
         <div class="grid md:grid-cols-3 gap-3">
             <div>
                 <label class="block text-sm font-medium mb-1">Tournament</label>
@@ -75,66 +76,20 @@
                 <input type="file" wire:model="image" accept="image/*" class="sb-input">
                 @error('image') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 @if($image)
-                    <img src="{{ $image->temporaryUrl() }}" alt="Player image preview" class="mt-2 h-12 w-12 rounded-lg object-cover border border-blue-100">
+                    <img src="{{ $image->temporaryUrl() }}" alt="Player image preview" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
                 @elseif($existingImagePath)
-                    <img src="{{ asset('storage/'.$existingImagePath) }}" alt="Player image" class="mt-2 h-12 w-12 rounded-lg object-cover border border-blue-100">
+                    <img src="{{ asset('storage/'.$existingImagePath) }}" alt="Player image" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
                 @endif
             </div>
         </div>
+
         <div class="flex gap-2">
             <button wire:click="save" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary">{{ $editingId ? 'Update' : 'Create' }}</button>
             @if($editingId)
-                <button wire:click="resetForm" class="px-4 py-2 border border-slate-300 rounded-lg">Cancel</button>
+                <a href="{{ route('admin.players.create') }}" class="px-4 py-2 border border-slate-300 rounded-lg">Cancel</a>
+            @else
+                <button wire:click="resetForm" class="px-4 py-2 border border-slate-300 rounded-lg">Reset</button>
             @endif
         </div>
     </div>
-
-    <div class="max-w-sm">
-        <label class="block text-sm font-medium mb-1">Tournament Filter</label>
-        <select wire:model.live="tournamentId" class="sb-input">
-            <option value="0">All Tournaments</option>
-            @foreach($tournaments as $tournament)
-                <option value="{{ $tournament->id }}">{{ $tournament->name }}</option>
-            @endforeach
-        </select>
-    </div>
-
-    <div class="sb-card overflow-x-auto">
-        <table class="w-full">
-            <thead class="sb-table-head text-left text-sm text-slate-700 border-b">
-                <tr>
-                    <th class="sb-table-cell">Name</th>
-                    <th class="sb-table-cell">Image</th>
-                    <th class="sb-table-cell">Tournament</th>
-                    <th class="sb-table-cell">Category</th>
-                    <th class="sb-table-cell">Base Price</th>
-                    <th class="sb-table-cell">Status</th>
-                    <th class="sb-table-cell">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($players as $player)
-                    <tr class="border-b last:border-b-0">
-                        <td class="sb-table-cell">{{ $player->name }}</td>
-                        <td class="sb-table-cell">
-                            <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-8 w-8 rounded-lg object-cover border border-blue-100">
-                        </td>
-                        <td class="sb-table-cell">{{ $player->tournament?->name ?? '-' }}</td>
-                        <td class="sb-table-cell">{{ $player->category?->name ?? '-' }}</td>
-                        <td class="sb-table-cell">{{ number_format($player->base_price, 2) }}</td>
-                        <td class="sb-table-cell">{{ strtoupper($player->status) }}</td>
-                        <td class="sb-table-cell">
-                            <div class="flex flex-wrap gap-2">
-                                <button wire:click="edit({{ $player->id }})" class="sb-action-chip border-amber-200 text-amber-700">Edit</button>
-                                <button wire:click="delete({{ $player->id }})" wire:confirm="Delete this player?" class="sb-action-chip border-red-200 text-red-600">Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="7" class="p-4 text-center text-slate-500">No players found.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-    {{ $players->links() }}
 </div>

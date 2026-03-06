@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Players;
 use App\Models\Player;
 use App\Models\PlayerCategory;
 use App\Models\Tournament;
+use App\Support\AdminQuota;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -41,8 +42,15 @@ class Manager extends Component
         $this->categoryId = null;
     }
 
+    public function isFormPage(): bool
+    {
+        return in_array((string) request()->route()?->getName(), ['admin.players.create', 'admin.players.edit'], true);
+    }
+
     public function save(): void
     {
+        $adminId = (int) auth()->id();
+
         $this->validate([
             'formTournamentId' => [
                 'required',
@@ -63,8 +71,18 @@ class Manager extends Component
             'image' => ['nullable', 'image', 'max:2048'],
         ]);
 
+        if (! $this->editingId) {
+            $limitMessage = AdminQuota::playerLimitMessage($adminId);
+            if ($limitMessage) {
+                $this->addError('name', $limitMessage);
+                $this->dispatch('toast', message: $limitMessage);
+
+                return;
+            }
+        }
+
         $payload = [
-            'admin_id' => auth()->id(),
+            'admin_id' => $adminId,
             'tournament_id' => $this->formTournamentId,
             'category_id' => $this->categoryId,
             'name' => $this->name,
@@ -149,23 +167,30 @@ class Manager extends Component
         $this->status = 'available';
     }
 
-    public function mount(): void
+    public function mount(?int $player = null): void
     {
         $this->resetForm();
+
+        if ($player) {
+            $this->edit($player);
+        }
     }
 
     public function render()
     {
-        $tournamentIds = Tournament::where('admin_id', auth()->id())->pluck('id');
+        $adminId = (int) auth()->id();
+        $tournamentIds = Tournament::where('admin_id', $adminId)->pluck('id');
+        $isFormPage = $this->isFormPage();
 
-        return view('livewire.admin.players.manager', [
-            'tournaments' => Tournament::where('admin_id', auth()->id())->get(['id', 'name']),
+        return view($isFormPage ? 'livewire.admin.players.form' : 'livewire.admin.players.index', [
+            'tournaments' => Tournament::where('admin_id', $adminId)->get(['id', 'name']),
+            'quota' => AdminQuota::playerStats($adminId),
             'categories' => $this->formTournamentId > 0
                 ? PlayerCategory::query()->where('tournament_id', $this->formTournamentId)->orderBy('name')->get(['id', 'name'])
                 : collect(),
             'players' => Player::query()
                 ->when($this->tournamentId > 0, fn ($query) => $query->where('tournament_id', $this->tournamentId))
-                ->where('admin_id', auth()->id())
+                ->where('admin_id', $adminId)
                 ->whereIn('tournament_id', $tournamentIds)
                 ->with(['tournament:id,name', 'category:id,name'])
                 ->latest()

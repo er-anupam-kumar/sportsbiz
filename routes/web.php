@@ -67,8 +67,12 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('/tournaments/create', TournamentCreate::class)->name('tournaments.create');
         Route::get('/tournaments/{tournament}/edit', TournamentSettings::class)->name('tournaments.edit');
         Route::get('/tournaments/{tournament}/settings', TournamentSettings::class)->name('tournaments.settings');
-        Route::get('/teams', TeamsManager::class)->name('teams');
-        Route::get('/players', PlayersManager::class)->name('players');
+        Route::get('/teams', TeamsManager::class)->name('teams.index');
+        Route::get('/teams/create', TeamsManager::class)->name('teams.create');
+        Route::get('/teams/{team}/edit', TeamsManager::class)->name('teams.edit');
+        Route::get('/players', PlayersManager::class)->name('players.index');
+        Route::get('/players/create', PlayersManager::class)->name('players.create');
+        Route::get('/players/{player}/edit', PlayersManager::class)->name('players.edit');
         Route::get('/categories', CategoriesManager::class)->name('categories');
         Route::get('/auction/{tournament}', ControlPanel::class)->name('auction.control');
         Route::get('/reports', AdminReports::class)->name('reports');

@@ -22,21 +22,38 @@ class ControlPanel extends Component
     use AuthorizesRequests;
 
     public Tournament $tournament;
+    public int $selectedTournamentId = 0;
+    public ?int $selectedPlayerId = null;
+    public string $startMode = 'manual';
 
     public function getListeners(): array
     {
         return [
-            "echo-presence:tournament.{$this->tournament->id},BidPlaced" => '$refresh',
-            "echo-presence:tournament.{$this->tournament->id},TimerExtended" => '$refresh',
-            "echo-presence:tournament.{$this->tournament->id},PlayerSold" => '$refresh',
-            "echo-presence:tournament.{$this->tournament->id},AuctionStarted" => '$refresh',
-            "echo-presence:tournament.{$this->tournament->id},AuctionPaused" => '$refresh',
+            "echo-presence:tournament.{$this->tournament->id},BidPlaced" => 'handleAuctionActivity',
+            "echo-presence:tournament.{$this->tournament->id},TimerExtended" => 'handleAuctionActivity',
+            "echo-presence:tournament.{$this->tournament->id},PlayerSold" => 'handleAuctionActivity',
+            "echo-presence:tournament.{$this->tournament->id},AuctionStarted" => 'handleAuctionActivity',
+            "echo-presence:tournament.{$this->tournament->id},AuctionPaused" => 'handleAuctionActivity',
             "echo-presence:tournament.{$this->tournament->id},PlayerShuffled" => 'handlePlayerShuffled',
         ];
     }
 
-    public function handlePlayerShuffled(): void
+    public function handleAuctionActivity(array $payload = []): void
     {
+        if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
+            return;
+        }
+
+        $this->dispatch('auction-activity');
+    }
+
+    public function handlePlayerShuffled(array $payload = []): void
+    {
+        if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
+            return;
+        }
+
+        $this->dispatch('auction-activity');
         $this->dispatch('auction-player-shuffled');
     }
 
@@ -44,6 +61,63 @@ class ControlPanel extends Component
     {
         $this->authorize('update', $tournament);
         $this->tournament = $tournament;
+        $this->selectedTournamentId = (int) $tournament->id;
+
+        $currentPlayerId = Auction::query()
+            ->where('tournament_id', $tournament->id)
+            ->value('current_player_id');
+
+        $this->selectedPlayerId = $currentPlayerId ? (int) $currentPlayerId : null;
+    }
+
+    public function loadTournament(): void
+    {
+        $targetId = (int) $this->selectedTournamentId;
+
+        if ($targetId <= 0) {
+            $this->dispatch('toast', message: 'Please select a tournament first.');
+            return;
+        }
+
+        if ((int) $this->tournament->id === $targetId) {
+            $this->dispatch('toast', message: 'This tournament is already loaded.');
+            return;
+        }
+
+        $target = Tournament::query()
+            ->where('admin_id', auth()->id())
+            ->find($targetId);
+
+        if (! $target) {
+            $this->dispatch('toast', message: 'Selected tournament is not accessible.');
+            return;
+        }
+
+        $this->redirectRoute('admin.auction.control', ['tournament' => $target->id], navigate: true);
+    }
+
+    public function updatedStartMode(string $value): void
+    {
+        if (! in_array($value, ['auto', 'manual'], true)) {
+            $this->startMode = 'manual';
+            return;
+        }
+
+        if ($value === 'manual') {
+            $auction = Auction::query()
+                ->where('tournament_id', $this->tournament->id)
+                ->first();
+
+            if ($auction && ! $auction->is_paused) {
+                $auction->update(['is_paused' => true]);
+                event(new AuctionPaused($this->tournament->id, auth()->id()));
+            }
+
+            $this->dispatch('toast', message: 'Manual mode enabled. Choose a player card and click Bring Live.');
+            return;
+        }
+
+        $this->dispatch('toast', message: 'Auto mode enabled. Auction can continue automatically.');
     }
 
     public function startAuction(): void
@@ -53,7 +127,22 @@ class ControlPanel extends Component
             ['current_bid' => 0]
         );
 
-        $currentPlayerId = $this->resolveCurrentPlayerId($auction);
+        $currentPlayerId = null;
+
+        if ($this->startMode === 'manual') {
+            if (! $this->selectedPlayerId) {
+                $this->dispatch('toast', message: 'Select a player first in manual mode.');
+                return;
+            }
+
+            $currentPlayerId = Player::query()
+                ->where('tournament_id', $this->tournament->id)
+                ->where('status', 'available')
+                ->whereKey($this->selectedPlayerId)
+                ->value('id');
+        } else {
+            $currentPlayerId = $this->resolveCurrentPlayerId($auction);
+        }
 
         if (! $currentPlayerId) {
             $this->dispatch('toast', message: 'No available players to start auction.');
@@ -69,14 +158,68 @@ class ControlPanel extends Component
             'ends_at' => now()->addSeconds($this->tournament->auction_timer_seconds),
         ]);
 
-        event(new AuctionStarted($this->tournament->id));
+        $this->selectedPlayerId = (int) $currentPlayerId;
+
+        event(new AuctionStarted($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction started.');
+    }
+
+    public function bringPlayerLive(int $playerId): void
+    {
+        $player = Player::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->where('status', 'available')
+            ->find($playerId);
+
+        if (! $player) {
+            $this->dispatch('toast', message: 'Selected player is not available.');
+            return;
+        }
+
+        $auction = Auction::query()->firstOrCreate(
+            ['tournament_id' => $this->tournament->id],
+            ['current_bid' => 0]
+        );
+
+        $auction->update([
+            'current_player_id' => $player->id,
+            'current_highest_team_id' => null,
+            'current_bid' => 0,
+            'last_bid_at' => null,
+            'is_paused' => false,
+            'started_at' => $auction->started_at ?? now(),
+            'ends_at' => now()->addSeconds($this->tournament->auction_timer_seconds),
+        ]);
+
+        $this->selectedPlayerId = (int) $player->id;
+
+        event(new PlayerShuffled($this->tournament->id, (int) $player->id, auth()->id()));
+        event(new AuctionStarted($this->tournament->id, auth()->id()));
+
+        $this->dispatch('player-live-set');
+        $this->dispatch('toast', message: 'Player brought live.');
+    }
+
+    public function bringNextAvailable(): void
+    {
+        $nextPlayerId = Player::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->where('status', 'available')
+            ->orderBy('id')
+            ->value('id');
+
+        if (! $nextPlayerId) {
+            $this->dispatch('toast', message: 'No available players to bring live.');
+            return;
+        }
+
+        $this->bringPlayerLive((int) $nextPlayerId);
     }
 
     public function pauseAuction(): void
     {
         Auction::query()->where('tournament_id', $this->tournament->id)->update(['is_paused' => true]);
-        event(new AuctionPaused($this->tournament->id));
+        event(new AuctionPaused($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction paused.');
     }
 
@@ -97,13 +240,20 @@ class ControlPanel extends Component
             $auction->current_player_id = $nextPlayerId;
         }
 
+        $pausedRemaining = 0;
+        if ($auction->is_paused && $auction->ends_at && $auction->updated_at) {
+            $pausedRemaining = max((int) $auction->updated_at->diffInSeconds($auction->ends_at, false), 0);
+        }
+
         $auction->is_paused = false;
-        if (! $auction->ends_at || now()->greaterThan($auction->ends_at)) {
+        if ($pausedRemaining > 0) {
+            $auction->ends_at = now()->addSeconds($pausedRemaining);
+        } elseif (! $auction->ends_at || now()->greaterThan($auction->ends_at)) {
             $auction->ends_at = now()->addSeconds($this->tournament->auction_timer_seconds);
         }
         $auction->save();
 
-        event(new AuctionStarted($this->tournament->id));
+        event(new AuctionStarted($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction resumed.');
     }
 
@@ -116,7 +266,7 @@ class ControlPanel extends Component
         }
 
         $auction->update(['ends_at' => $auction->ends_at->addSeconds($seconds)]);
-        event(new TimerExtended($this->tournament->id, $seconds));
+        event(new TimerExtended($this->tournament->id, $seconds, auth()->id()));
         $this->dispatch('toast', message: "Timer extended by {$seconds}s.");
     }
 
@@ -130,7 +280,19 @@ class ControlPanel extends Component
 
         try {
             $auctionEngine->markPlayerSold($auction->id);
-            $this->advanceToNextPlayer($auction);
+            if ($this->startMode === 'auto') {
+                $this->advanceToNextPlayer($auction);
+            } else {
+                $auction->update([
+                    'current_player_id' => null,
+                    'current_highest_team_id' => null,
+                    'current_bid' => 0,
+                    'last_bid_at' => null,
+                    'ends_at' => null,
+                    'is_paused' => true,
+                ]);
+                $this->selectedPlayerId = null;
+            }
             $this->dispatch('toast', message: 'Player marked sold.');
         } catch (AuctionException $exception) {
             $this->dispatch('toast', message: $exception->getMessage());
@@ -157,7 +319,20 @@ class ControlPanel extends Component
             'final_price' => null,
         ]);
 
-        $this->advanceToNextPlayer($auction);
+        if ($this->startMode === 'auto') {
+            $this->advanceToNextPlayer($auction);
+        } else {
+            $auction->update([
+                'current_player_id' => null,
+                'current_highest_team_id' => null,
+                'current_bid' => 0,
+                'last_bid_at' => null,
+                'ends_at' => null,
+                'is_paused' => true,
+            ]);
+            $this->selectedPlayerId = null;
+        }
+
         $this->dispatch('toast', message: 'Player marked UNSOLD.');
     }
 
@@ -202,7 +377,9 @@ class ControlPanel extends Component
             'ends_at' => now()->addSeconds($this->tournament->auction_timer_seconds),
         ]);
 
-        event(new PlayerShuffled($this->tournament->id, (int) $nextPlayerId));
+        $this->selectedPlayerId = (int) $nextPlayerId;
+
+        event(new PlayerShuffled($this->tournament->id, (int) $nextPlayerId, auth()->id()));
 
         $this->dispatch('toast', message: 'Players shuffled. New player loaded.');
     }
@@ -260,6 +437,7 @@ class ControlPanel extends Component
                 'ends_at' => now()->addSeconds($this->tournament->auction_timer_seconds),
                 'is_paused' => false,
             ]);
+            $this->selectedPlayerId = (int) $nextPlayerId;
             return;
         }
 
@@ -271,23 +449,39 @@ class ControlPanel extends Component
             'ends_at' => null,
             'is_paused' => true,
         ]);
+
+        $this->selectedPlayerId = null;
     }
 
     public function render()
     {
         $auction = Auction::query()
-            ->with('currentPlayer:id,name,image_path', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
+            ->with('currentPlayer:id,name,image_path,category_id', 'currentPlayer.category:id,name', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
             ->where('tournament_id', $this->tournament->id)
             ->first();
 
         $remainingSeconds = 0;
         if ($auction?->ends_at) {
-            $remainingSeconds = max((int) now()->diffInSeconds($auction->ends_at, false), 0);
+            if ($auction->is_paused && $auction->updated_at) {
+                $remainingSeconds = max((int) $auction->updated_at->diffInSeconds($auction->ends_at, false), 0);
+            } else {
+                $remainingSeconds = max((int) now()->diffInSeconds($auction->ends_at, false), 0);
+            }
         }
 
         return view('livewire.admin.auction.control-panel', [
             'auction' => $auction,
             'remainingSeconds' => $remainingSeconds,
+            'tournaments' => Tournament::query()
+                ->where('admin_id', auth()->id())
+                ->orderBy('name')
+                ->get(['id', 'name']),
+            'modalPlayers' => Player::query()
+                ->where('tournament_id', $this->tournament->id)
+                ->with('category:id,name', 'soldTeam:id,name')
+                ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'unsold' THEN 2 WHEN 'sold' THEN 3 ELSE 4 END")
+                ->orderBy('name')
+                ->get(['id', 'name', 'image_path', 'category_id', 'base_price', 'status', 'sold_team_id', 'final_price']),
             'availableCount' => Player::query()
                 ->where('tournament_id', $this->tournament->id)
                 ->where('status', 'available')

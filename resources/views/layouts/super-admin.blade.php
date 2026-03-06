@@ -14,34 +14,58 @@
     @php
         $currentRoute = request()->route()?->getName();
         $isActive = fn (array $names): bool => in_array($currentRoute, $names, true);
+        $activeSection = 'overview';
+
+        if ($isActive(['super-admin.admins', 'super-admin.sports', 'super-admin.subscriptions'])) {
+            $activeSection = 'management';
+        }
+
+        if ($isActive(['super-admin.settings'])) {
+            $activeSection = 'platform';
+        }
     @endphp
     <div class="min-h-screen flex">
         <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition md:translate-x-0 shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'">
             <div class="h-16 px-4 flex items-center gap-2 border-b border-white/20 tracking-wide">
                 <img src="{{ asset('images/sportsbiz-logo.svg') }}" alt="SportsBiz" class="h-8 w-auto" />
             </div>
-            <nav class="p-3 space-y-4 text-sm h-[calc(100vh-4rem)] overflow-y-auto">
+            <nav class="p-3 space-y-3 text-sm h-[calc(100vh-4rem)] overflow-y-auto" x-data="{ activeSection: @js($activeSection) }">
                 <div class="space-y-1">
-                    <p class="px-3 sb-section-kicker">Overview</p>
-                    <a href="{{ route('super-admin.dashboard') }}" class="sb-nav-link {{ $isActive(['super-admin.dashboard']) ? 'bg-white/20' : '' }}"><i data-lucide="layout-dashboard" class="w-4 h-4"></i>Dashboard</a>
-                    <a href="{{ route('super-admin.reports') }}" class="sb-nav-link {{ $isActive(['super-admin.reports']) ? 'bg-white/20' : '' }}"><i data-lucide="bar-chart-3" class="w-4 h-4"></i>Reports</a>
+                    <button type="button" @click="activeSection = activeSection === 'overview' ? '' : 'overview'" class="w-full px-3 py-2 flex items-center justify-between rounded-lg hover:bg-white/10">
+                        <span class="sb-section-kicker">Overview</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="activeSection === 'overview' ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="activeSection === 'overview'" class="space-y-1 ml-6 pl-3 border-l border-white/25">
+                        <a href="{{ route('super-admin.dashboard') }}" class="sb-nav-link pl-4 {{ $isActive(['super-admin.dashboard']) ? 'bg-white/20' : '' }}">Dashboard</a>
+                        <a href="{{ route('super-admin.reports') }}" class="sb-nav-link pl-4 {{ $isActive(['super-admin.reports']) ? 'bg-white/20' : '' }}">Reports</a>
+                    </div>
                 </div>
 
                 <div class="space-y-1">
-                    <p class="px-3 sb-section-kicker">Management</p>
-                    <a href="{{ route('super-admin.admins') }}" class="sb-nav-link {{ $isActive(['super-admin.admins']) ? 'bg-white/20' : '' }}"><i data-lucide="users-round" class="w-4 h-4"></i>Admin Manager</a>
-                    <a href="{{ route('super-admin.sports') }}" class="sb-nav-link {{ $isActive(['super-admin.sports']) ? 'bg-white/20' : '' }}"><i data-lucide="dumbbell" class="w-4 h-4"></i>Sports Manager</a>
-                    <a href="{{ route('super-admin.subscriptions') }}" class="sb-nav-link {{ $isActive(['super-admin.subscriptions']) ? 'bg-white/20' : '' }}"><i data-lucide="badge-dollar-sign" class="w-4 h-4"></i>Subscriptions</a>
+                    <button type="button" @click="activeSection = activeSection === 'management' ? '' : 'management'" class="w-full px-3 py-2 flex items-center justify-between rounded-lg hover:bg-white/10">
+                        <span class="sb-section-kicker">Management</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="activeSection === 'management' ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="activeSection === 'management'" class="space-y-1 ml-6 pl-3 border-l border-white/25">
+                        <a href="{{ route('super-admin.admins') }}" class="sb-nav-link pl-4 {{ $isActive(['super-admin.admins']) ? 'bg-white/20' : '' }}">Admin Manager</a>
+                        <a href="{{ route('super-admin.sports') }}" class="sb-nav-link pl-4 {{ $isActive(['super-admin.sports']) ? 'bg-white/20' : '' }}">Sports Manager</a>
+                        <a href="{{ route('super-admin.subscriptions') }}" class="sb-nav-link pl-4 {{ $isActive(['super-admin.subscriptions']) ? 'bg-white/20' : '' }}">Subscriptions</a>
+                    </div>
                 </div>
 
                 <div class="space-y-1">
-                    <p class="px-3 sb-section-kicker">Platform</p>
-                    <a href="{{ route('super-admin.settings') }}" class="sb-nav-link {{ $isActive(['super-admin.settings']) ? 'bg-white/20' : '' }}"><i data-lucide="settings-2" class="w-4 h-4"></i>Platform Settings</a>
+                    <button type="button" @click="activeSection = activeSection === 'platform' ? '' : 'platform'" class="w-full px-3 py-2 flex items-center justify-between rounded-lg hover:bg-white/10">
+                        <span class="sb-section-kicker">Platform</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="activeSection === 'platform' ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="activeSection === 'platform'" class="space-y-1 ml-6 pl-3 border-l border-white/25">
+                        <a href="{{ route('super-admin.settings') }}" class="sb-nav-link pl-4 {{ $isActive(['super-admin.settings']) ? 'bg-white/20' : '' }}">Platform Settings</a>
+                    </div>
                 </div>
             </nav>
         </aside>
 
-        <div class="flex-1 md:ml-64">
+        <div class="flex-1 md:ml-64 h-screen flex flex-col overflow-hidden">
             <header class="h-16 sb-glass sb-topbar px-4 md:px-6 flex items-center justify-between">
                 <button class="md:hidden px-3 py-2 rounded-lg sb-menu-btn flex items-center gap-1" @click="mobileSidebar = !mobileSidebar"><i data-lucide="menu" class="w-4 h-4"></i>Menu</button>
                 <div class="hidden md:block text-sm font-semibold sb-brand-gradient">SuperAdmin Control Arena</div>
@@ -57,7 +81,7 @@
                 </div>
             </header>
 
-            <main class="p-4 md:p-6">
+            <main class="flex-1 overflow-y-auto p-4 md:p-6">
                 {{ $slot }}
             </main>
         </div>

@@ -5,7 +5,14 @@
     </div>
 
     <div class="sb-card p-4 space-y-3">
-        <h2 class="sb-section-title">New Tournament</h2>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="sb-section-title">New Tournament</h2>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="sb-action-chip border-slate-200 text-slate-700">Used: {{ $quota['used'] }}</span>
+                <span class="sb-action-chip border-slate-200 text-slate-700">Limit: {{ $quota['limit'] }}</span>
+                <span class="sb-action-chip border-amber-200 text-amber-700">Remaining: {{ $quota['remaining'] }}</span>
+            </div>
+        </div>
         <div class="grid md:grid-cols-2 gap-3">
             <div>
                 <label class="block text-sm font-medium mb-1">Sport</label>

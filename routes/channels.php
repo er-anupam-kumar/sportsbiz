@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Auction;
 use App\Models\Tournament;
 use Illuminate\Support\Facades\Broadcast;
 
@@ -26,5 +27,26 @@ Broadcast::channel('tournament.{tournamentId}', function ($user, int $tournament
 });
 
 Broadcast::channel('auction.{auctionId}', function ($user, int $auctionId) {
-    return ['id' => $user->id, 'name' => $user->name];
+    if ($user->hasRole('SuperAdmin')) {
+        return ['id' => $user->id, 'name' => $user->name, 'role' => 'SuperAdmin'];
+    }
+
+    $auction = Auction::query()
+        ->with('tournament:id,admin_id')
+        ->find($auctionId);
+
+    if (! $auction || ! $auction->tournament) {
+        return false;
+    }
+
+    $adminId = $user->hasRole('Admin') ? $user->id : $user->parent_admin_id;
+    if ((int) $auction->tournament->admin_id !== (int) $adminId) {
+        return false;
+    }
+
+    return [
+        'id' => $user->id,
+        'name' => $user->name,
+        'role' => $user->getRoleNames()->first(),
+    ];
 });

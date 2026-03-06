@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Models\Bid;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -13,14 +14,18 @@ class BidPlaced implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public Bid $bid)
+    public function __construct(public Bid $bid, public ?int $actorId = null)
     {
+        $this->actorId = $this->actorId ?? auth()->id();
         $this->bid->loadMissing('team:id,name,logo_path');
     }
 
     public function broadcastOn(): array
     {
-        return [new PresenceChannel('tournament.'.$this->bid->tournament_id)];
+        return [
+            new PresenceChannel('tournament.'.$this->bid->tournament_id),
+            new Channel('tournament.public.'.$this->bid->tournament_id),
+        ];
     }
 
     public function broadcastAs(): string
@@ -39,6 +44,7 @@ class BidPlaced implements ShouldBroadcastNow
             'team_logo' => $this->bid->team?->logo_path,
             'amount' => $this->bid->amount,
             'is_auto_bid' => $this->bid->is_auto_bid,
+            'actor_id' => $this->actorId,
             'created_at' => $this->bid->created_at?->toIso8601String(),
         ];
     }

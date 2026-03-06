@@ -114,7 +114,7 @@ class AuctionEngine
                 ],
             ]);
 
-            event(new BidPlaced($bid));
+            event(new BidPlaced($bid, auth()->id()));
 
             return $bid;
         });
@@ -168,7 +168,7 @@ class AuctionEngine
                 ],
             ]);
 
-            event(new PlayerSold($auction->id, $player->id, $team->id, (float) $auction->current_bid));
+            event(new PlayerSold($auction->tournament_id, $auction->id, $player->id, $team->id, (float) $auction->current_bid, auth()->id()));
 
             return $player;
         });

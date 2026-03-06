@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Teams;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Models\User;
+use App\Support\AdminQuota;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -37,8 +38,14 @@ class Manager extends Component
         $this->resetPage();
     }
 
+    public function isFormPage(): bool
+    {
+        return in_array((string) request()->route()?->getName(), ['admin.teams.create', 'admin.teams.edit'], true);
+    }
+
     public function save(): void
     {
+        $adminId = (int) auth()->id();
         $editingTeam = null;
         $teamUserId = null;
 
@@ -83,6 +90,16 @@ class Manager extends Component
             'secondaryColor' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6})$/'],
         ]);
 
+        if (! $this->editingId) {
+            $limitMessage = AdminQuota::teamLimitMessage($adminId);
+            if ($limitMessage) {
+                $this->addError('name', $limitMessage);
+                $this->dispatch('toast', message: $limitMessage);
+
+                return;
+            }
+        }
+
         if ($teamUserId) {
             $teamUser = User::query()->findOrFail($teamUserId);
             $userPayload = [
@@ -102,7 +119,7 @@ class Manager extends Component
                 'name' => $this->name,
                 'email' => $this->email,
                 'password' => Hash::make($this->password),
-                'parent_admin_id' => auth()->id(),
+                'parent_admin_id' => $adminId,
                 'status' => 'active',
             ]);
             $teamUser->assignRole('Team');
@@ -110,7 +127,7 @@ class Manager extends Component
         }
 
         $payload = [
-            'admin_id' => auth()->id(),
+            'admin_id' => $adminId,
             'tournament_id' => $this->formTournamentId,
             'user_id' => $teamUserId,
             'name' => $this->name,
@@ -209,19 +226,27 @@ class Manager extends Component
         $this->isLocked = false;
     }
 
-    public function mount(): void
+    public function mount(?int $team = null): void
     {
         $this->resetForm();
+
+        if ($team) {
+            $this->edit($team);
+        }
     }
 
     public function render()
     {
-        return view('livewire.admin.teams.manager', [
-            'tournaments' => Tournament::where('admin_id', auth()->id())->get(['id', 'name']),
+        $adminId = (int) auth()->id();
+        $isFormPage = $this->isFormPage();
+
+        return view($isFormPage ? 'livewire.admin.teams.form' : 'livewire.admin.teams.index', [
+            'tournaments' => Tournament::where('admin_id', $adminId)->get(['id', 'name']),
+            'quota' => AdminQuota::teamStats($adminId),
             'teams' => Team::query()
                 ->when($this->tournamentId > 0, fn ($query) => $query->where('tournament_id', $this->tournamentId))
-                ->where('admin_id', auth()->id())
-                ->with('user:id,email')
+                ->where('admin_id', $adminId)
+                ->with(['user:id,email', 'tournament:id,name'])
                 ->latest()
                 ->paginate(15),
         ]);

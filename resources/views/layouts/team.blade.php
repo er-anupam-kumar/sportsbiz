@@ -16,23 +16,34 @@
         $teamTournamentId = $teamModel?->tournament_id;
         $currentRoute = request()->route()?->getName();
         $isActive = fn (array $names): bool => in_array($currentRoute, $names, true);
+        $activeSection = $isActive(['team.auction-room', 'team.squad', 'team.bid-history']) ? 'auction' : 'overview';
     @endphp
     <div class="min-h-screen flex">
         <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition md:translate-x-0 shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'">
             <div class="h-16 px-4 flex items-center gap-2 border-b border-white/20 tracking-wide">
                 <img src="{{ asset('images/sportsbiz-logo.svg') }}" alt="SportsBiz" class="h-8 w-auto" />
             </div>
-            <nav class="p-3 space-y-4 text-sm h-[calc(100vh-4rem)] overflow-y-auto">
+            <nav class="p-3 space-y-3 text-sm h-[calc(100vh-4rem)] overflow-y-auto" x-data="{ activeSection: @js($activeSection) }">
                 <div class="space-y-1">
-                    <p class="px-3 sb-section-kicker">Overview</p>
-                    <a href="{{ route('team.dashboard') }}" class="sb-nav-link {{ $isActive(['team.dashboard']) ? 'bg-white/20' : '' }}"><i data-lucide="layout-dashboard" class="w-4 h-4"></i>Dashboard</a>
+                    <button type="button" @click="activeSection = activeSection === 'overview' ? '' : 'overview'" class="w-full px-3 py-2 flex items-center justify-between rounded-lg hover:bg-white/10">
+                        <span class="sb-section-kicker">Overview</span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="activeSection === 'overview' ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="activeSection === 'overview'" class="space-y-1">
+                        <a href="{{ route('team.dashboard') }}" class="sb-nav-link {{ $isActive(['team.dashboard']) ? 'bg-white/20' : '' }}"><i data-lucide="layout-dashboard" class="w-4 h-4"></i>Dashboard</a>
+                    </div>
                 </div>
                 @if($teamTournamentId)
                     <div class="space-y-1">
-                        <p class="px-3 sb-section-kicker">Auction</p>
-                        <a href="{{ route('team.auction-room', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.auction-room']) ? 'bg-white/20' : '' }}"><i data-lucide="gavel" class="w-4 h-4"></i>Auction Room</a>
-                        <a href="{{ route('team.squad', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.squad']) ? 'bg-white/20' : '' }}"><i data-lucide="users" class="w-4 h-4"></i>Squad</a>
-                        <a href="{{ route('team.bid-history', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.bid-history']) ? 'bg-white/20' : '' }}"><i data-lucide="scroll-text" class="w-4 h-4"></i>Bid History</a>
+                        <button type="button" @click="activeSection = activeSection === 'auction' ? '' : 'auction'" class="w-full px-3 py-2 flex items-center justify-between rounded-lg hover:bg-white/10">
+                            <span class="sb-section-kicker">Auction</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform" :class="activeSection === 'auction' ? 'rotate-180' : ''"></i>
+                        </button>
+                        <div x-show="activeSection === 'auction'" class="space-y-1">
+                            <a href="{{ route('team.auction-room', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.auction-room']) ? 'bg-white/20' : '' }}"><i data-lucide="gavel" class="w-4 h-4"></i>Auction Room</a>
+                            <a href="{{ route('team.squad', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.squad']) ? 'bg-white/20' : '' }}"><i data-lucide="users" class="w-4 h-4"></i>Squad</a>
+                            <a href="{{ route('team.bid-history', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.bid-history']) ? 'bg-white/20' : '' }}"><i data-lucide="scroll-text" class="w-4 h-4"></i>Bid History</a>
+                        </div>
                     </div>
                 @endif
             </nav>

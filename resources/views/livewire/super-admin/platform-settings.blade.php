@@ -17,10 +17,44 @@
             </select>
             @error('defaultGateway') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
+        <div>
+            <label class="block text-sm font-medium">Realtime Mode</label>
+            <select wire:model="realtimeMode" class="sb-input">
+                <option value="polling">Polling (Shared Hosting Safe)</option>
+                <option value="websocket">WebSocket (Reverb / Pusher)</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Use Polling for shared hosting. WebSocket requires long-running realtime infrastructure.</p>
+            @error('realtimeMode') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+        </div>
         <label class="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" wire:model="maintenanceMode">
             Enable Maintenance Mode (platform level flag)
         </label>
         <button wire:click="save" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary">Save</button>
+        <div class="mt-6 border-t pt-4 space-y-2">
+            <div class="font-semibold text-sm mb-2">Maintenance Commands</div>
+            <div class="flex flex-wrap gap-2 mb-2">
+                <button wire:click="runCommand('migrate')" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary text-xs font-semibold">Migrate</button>
+                <button wire:click="runCommand('storage:link')" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary text-xs font-semibold">Storage Link</button>
+                <button wire:click="runCommand('composer update')" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary text-xs font-semibold">Composer Update</button>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button wire:click="runCommand('cache:clear')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-blue-600 text-white text-xs">Cache Clear</button>
+                <button wire:click="runCommand('config:clear')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Config Clear</button>
+                <button wire:click="runCommand('route:clear')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-indigo-600 text-white text-xs">Route Clear</button>
+                <button wire:click="runCommand('view:clear')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-indigo-600 text-white text-xs">View Clear</button>
+                <button wire:click="runCommand('optimize')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-green-600 text-white text-xs">Optimize</button>
+                <button wire:click="runCommand('optimize:clear')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-green-600 text-white text-xs">Optimize Clear</button>
+                <button wire:click="runCommand('composer install')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-slate-700 text-white text-xs">Composer Install</button>
+                <button wire:click="runCommand('composer dump-autoload')" wire:loading.attr="disabled" class="px-3 py-1 rounded bg-slate-700 text-white text-xs">Composer Dump Autoload</button>
+            </div>
+            <div wire:loading wire:target="runCommand" class="text-xs text-slate-500 mt-2">Running command...</div>
+            @if(session('commandOutput'))
+                <div class="mt-2 p-2 rounded bg-slate-100 text-xs text-slate-700 border border-slate-300">
+                    <strong>Output:</strong>
+                    <pre class="whitespace-pre-wrap">{{ session('commandOutput') }}</pre>
+                </div>
+            @endif
+        </div>
     </div>
 </div>

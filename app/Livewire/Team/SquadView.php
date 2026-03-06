@@ -21,8 +21,18 @@ class SquadView extends Component
     {
         $team = Team::where('user_id', auth()->id())->where('tournament_id', $this->tournamentId)->firstOrFail();
 
+        $players = Player::query()
+            ->where('sold_team_id', $team->id)
+            ->where('status', 'sold')
+            ->with('category:id,name')
+            ->orderByDesc('final_price')
+            ->orderBy('name')
+            ->get();
+
+        $playersByCategory = $players->groupBy(fn (Player $player) => $player->category?->name ?: 'Uncategorized');
+
         return view('livewire.team.squad-view', [
-            'players' => Player::where('sold_team_id', $team->id)->where('status', 'sold')->get(),
+            'playersByCategory' => $playersByCategory,
             'team' => $team,
         ]);
     }

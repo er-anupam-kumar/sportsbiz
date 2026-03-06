@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Tournament;
 
 use App\Models\Sport;
 use App\Models\Tournament;
+use App\Support\AdminQuota;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -21,6 +22,8 @@ class Create extends Component
 
     public function save(): void
     {
+        $adminId = (int) auth()->id();
+
         $this->validate([
             'sportId' => ['required', 'integer', 'exists:sports,id'],
             'name' => ['required', 'string', 'max:255'],
@@ -31,8 +34,16 @@ class Create extends Component
             'auctionType' => ['required', 'in:live,silent'],
         ]);
 
+        $limitMessage = AdminQuota::tournamentLimitMessage($adminId);
+        if ($limitMessage) {
+            $this->addError('name', $limitMessage);
+            $this->dispatch('toast', message: $limitMessage);
+
+            return;
+        }
+
         Tournament::query()->create([
-            'admin_id' => auth()->id(),
+            'admin_id' => $adminId,
             'sport_id' => $this->sportId,
             'name' => $this->name,
             'purse_amount' => $this->purseAmount,
@@ -75,8 +86,11 @@ class Create extends Component
 
     public function render()
     {
+        $adminId = (int) auth()->id();
+
         return view('livewire.admin.tournament.create', [
             'sports' => Sport::where('is_active', true)->orderBy('name')->get(),
+            'quota' => AdminQuota::tournamentStats($adminId),
         ]);
     }
 }
