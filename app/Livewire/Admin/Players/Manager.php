@@ -21,10 +21,11 @@ class Manager extends Component
 
     public int $tournamentId = 0;
     public ?int $editingId = null;
+    public bool $formMode = false;
     public int $formTournamentId = 0;
     public ?int $categoryId = null;
     public string $name = '';
-    public float $basePrice = 0;
+    public $basePrice = 0;
     public ?int $age = null;
     public string $country = '';
     public string $previousTeam = '';
@@ -44,14 +45,14 @@ class Manager extends Component
 
     public function isFormPage(): bool
     {
-        return in_array((string) request()->route()?->getName(), ['admin.players.create', 'admin.players.edit'], true);
+        return $this->formMode;
     }
 
     public function save(): void
     {
         $adminId = (int) auth()->id();
 
-        $this->validate([
+        $validated = $this->validate([
             'formTournamentId' => [
                 'required',
                 'integer',
@@ -69,6 +70,12 @@ class Manager extends Component
             'previousTeam' => ['nullable', 'string', 'max:255'],
             'status' => ['required', 'in:available,sold,unsold,retained,withdrawn'],
             'image' => ['nullable', 'image', 'max:2048'],
+        ], [
+            'formTournamentId.required' => 'Please select a tournament.',
+            'formTournamentId.integer' => 'Please select a valid tournament.',
+            'name.required' => 'Player name is required.',
+            'basePrice.required' => 'Base price is required.',
+            'basePrice.numeric' => 'Base price must be a valid number.',
         ]);
 
         if (! $this->editingId) {
@@ -81,42 +88,48 @@ class Manager extends Component
             }
         }
 
-        $payload = [
-            'admin_id' => $adminId,
-            'tournament_id' => $this->formTournamentId,
-            'category_id' => $this->categoryId,
-            'name' => $this->name,
-            'base_price' => $this->basePrice,
-            'age' => $this->age,
-            'country' => $this->country !== '' ? $this->country : null,
-            'previous_team' => $this->previousTeam !== '' ? $this->previousTeam : null,
-            'status' => $this->status,
-        ];
+        try {
+            $payload = [
+                'admin_id' => $adminId,
+                'tournament_id' => (int) $validated['formTournamentId'],
+                'category_id' => $validated['categoryId'] ? (int) $validated['categoryId'] : null,
+                'name' => trim((string) $validated['name']),
+                'base_price' => (float) $validated['basePrice'],
+                'age' => $validated['age'] ? (int) $validated['age'] : null,
+                'country' => $this->country !== '' ? trim($this->country) : null,
+                'previous_team' => $this->previousTeam !== '' ? trim($this->previousTeam) : null,
+                'status' => $validated['status'],
+            ];
 
-        if ($this->editingId) {
-            $player = Player::query()
-                ->where('admin_id', auth()->id())
-                ->findOrFail($this->editingId);
+            if ($this->editingId) {
+                $player = Player::query()
+                    ->where('admin_id', auth()->id())
+                    ->findOrFail($this->editingId);
 
-            if ($this->image) {
-                if ($player->image_path) {
-                    Storage::disk('public')->delete($player->image_path);
+                if ($this->image) {
+                    if ($player->image_path) {
+                        Storage::disk('public')->delete($player->image_path);
+                    }
+                    $payload['image_path'] = $this->image->store('players', 'public');
                 }
-                $payload['image_path'] = $this->image->store('players', 'public');
+
+                $player->update($payload);
+                $message = 'Player updated.';
+            } else {
+                if ($this->image) {
+                    $payload['image_path'] = $this->image->store('players', 'public');
+                }
+                Player::query()->create($payload);
+                $message = 'Player created.';
             }
 
-            $player->update($payload);
-            $message = 'Player updated.';
-        } else {
-            if ($this->image) {
-                $payload['image_path'] = $this->image->store('players', 'public');
-            }
-            Player::query()->create($payload);
-            $message = 'Player created.';
+            $this->resetForm();
+            $this->dispatch('toast', message: $message);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->addError('name', 'Unable to save player right now. Please try again.');
+            $this->dispatch('toast', message: 'Unable to save player. Check inputs and try again.');
         }
-
-        $this->resetForm();
-        $this->dispatch('toast', message: $message);
     }
 
     public function edit(int $playerId): void
@@ -170,6 +183,7 @@ class Manager extends Component
     public function mount(?int $player = null): void
     {
         $this->resetForm();
+        $this->formMode = in_array((string) request()->route()?->getName(), ['admin.players.create', 'admin.players.edit'], true);
 
         if ($player) {
             $this->edit($player);

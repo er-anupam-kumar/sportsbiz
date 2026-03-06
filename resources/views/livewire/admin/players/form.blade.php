@@ -17,7 +17,7 @@
         <div class="grid md:grid-cols-3 gap-3">
             <div>
                 <label class="block text-sm font-medium mb-1">Tournament</label>
-                <select wire:model.live="formTournamentId" class="sb-input">
+                <select wire:model.live.number="formTournamentId" class="sb-input">
                     <option value="0">Select Tournament</option>
                     @foreach($tournaments as $tournament)
                         <option value="{{ $tournament->id }}">{{ $tournament->name }}</option>
@@ -27,7 +27,7 @@
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">Category</label>
-                <select wire:model="categoryId" class="sb-input">
+                <select wire:model.number="categoryId" class="sb-input">
                     <option value="">No Category</option>
                     @foreach($categories as $category)
                         <option value="{{ $category->id }}">{{ $category->name }}</option>
@@ -42,12 +42,12 @@
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">Base Price</label>
-                <input type="number" wire:model="basePrice" class="sb-input" placeholder="Base Price">
+                <input type="number" wire:model.number="basePrice" class="sb-input" placeholder="Base Price">
                 @error('basePrice') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
                 <label class="block text-sm font-medium mb-1">Age</label>
-                <input type="number" wire:model="age" class="sb-input" placeholder="Age">
+                <input type="number" wire:model.number="age" class="sb-input" placeholder="Age">
                 @error('age') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
