@@ -26,6 +26,15 @@ class ControlPanel extends Component
     public ?int $selectedPlayerId = null;
     public string $startMode = 'manual';
 
+    private function safeBroadcast(object $event): void
+    {
+        try {
+            event($event);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+    }
+
     public function getListeners(): array
     {
         return [
@@ -110,7 +119,7 @@ class ControlPanel extends Component
 
             if ($auction && ! $auction->is_paused) {
                 $auction->update(['is_paused' => true]);
-                event(new AuctionPaused($this->tournament->id, auth()->id()));
+                $this->safeBroadcast(new AuctionPaused($this->tournament->id, auth()->id()));
             }
 
             $this->dispatch('toast', message: 'Manual mode enabled. Choose a player card and click Bring Live.');
@@ -160,7 +169,7 @@ class ControlPanel extends Component
 
         $this->selectedPlayerId = (int) $currentPlayerId;
 
-        event(new AuctionStarted($this->tournament->id, auth()->id()));
+        $this->safeBroadcast(new AuctionStarted($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction started.');
     }
 
@@ -193,8 +202,8 @@ class ControlPanel extends Component
 
         $this->selectedPlayerId = (int) $player->id;
 
-        event(new PlayerShuffled($this->tournament->id, (int) $player->id, auth()->id()));
-        event(new AuctionStarted($this->tournament->id, auth()->id()));
+        $this->safeBroadcast(new PlayerShuffled($this->tournament->id, (int) $player->id, auth()->id()));
+        $this->safeBroadcast(new AuctionStarted($this->tournament->id, auth()->id()));
 
         $this->dispatch('player-live-set');
         $this->dispatch('toast', message: 'Player brought live.');
@@ -219,7 +228,7 @@ class ControlPanel extends Component
     public function pauseAuction(): void
     {
         Auction::query()->where('tournament_id', $this->tournament->id)->update(['is_paused' => true]);
-        event(new AuctionPaused($this->tournament->id, auth()->id()));
+        $this->safeBroadcast(new AuctionPaused($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction paused.');
     }
 
@@ -253,7 +262,7 @@ class ControlPanel extends Component
         }
         $auction->save();
 
-        event(new AuctionStarted($this->tournament->id, auth()->id()));
+        $this->safeBroadcast(new AuctionStarted($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction resumed.');
     }
 
@@ -266,7 +275,7 @@ class ControlPanel extends Component
         }
 
         $auction->update(['ends_at' => $auction->ends_at->addSeconds($seconds)]);
-        event(new TimerExtended($this->tournament->id, $seconds, auth()->id()));
+        $this->safeBroadcast(new TimerExtended($this->tournament->id, $seconds, auth()->id()));
         $this->dispatch('toast', message: "Timer extended by {$seconds}s.");
     }
 
@@ -379,7 +388,7 @@ class ControlPanel extends Component
 
         $this->selectedPlayerId = (int) $nextPlayerId;
 
-        event(new PlayerShuffled($this->tournament->id, (int) $nextPlayerId, auth()->id()));
+        $this->safeBroadcast(new PlayerShuffled($this->tournament->id, (int) $nextPlayerId, auth()->id()));
 
         $this->dispatch('toast', message: 'Players shuffled. New player loaded.');
     }
