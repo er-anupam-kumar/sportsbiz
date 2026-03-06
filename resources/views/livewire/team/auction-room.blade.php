@@ -62,6 +62,9 @@
         <div class="sb-marquee">
             <div class="sb-marquee-track font-semibold">
                 <span>⚡ Current Player: {{ $auction?->currentPlayer?->name ?? 'N/A' }}</span>
+                <span>🏷️ Category: {{ $auction?->currentPlayer?->category?->name ?? 'Uncategorized' }}</span>
+                <span>💰 Base: {{ number_format($auction?->currentPlayer?->base_price ?? 0, 2) }}</span>
+                <span>⬆️ Step Up: {{ number_format($tournament?->base_increment ?? 0, 2) }}</span>
                 <span>💸 Highest Bid: {{ number_format($auction?->current_bid ?? 0, 2) }}</span>
                 <span>🏁 Leading Team: {{ $auction?->currentHighestTeam?->name ?? '-' }}</span>
                 <span>👛 Your Wallet: {{ number_format($team?->wallet_balance ?? 0, 2) }}</span>
@@ -90,7 +93,17 @@
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Current Player</div>
                 <div class="mt-2 flex items-center gap-3">
                     <img src="{{ $auction?->currentPlayer?->image_path ? asset('storage/'.$auction->currentPlayer->image_path) : asset('images/team-placeholder.svg') }}" alt="Current player" class="h-16 w-16 md:h-20 md:w-20 rounded-xl object-cover border border-slate-200" />
-                    <div class="font-black text-xl md:text-2xl leading-tight text-slate-900">{{ $auction?->currentPlayer?->name ?? 'N/A' }}</div>
+                    <div class="min-w-0">
+                        <div class="font-black text-xl md:text-2xl leading-tight text-slate-900 truncate">{{ $auction?->currentPlayer?->name ?? 'N/A' }}</div>
+                        <div class="text-xs text-slate-500 mt-1">Category: {{ $auction?->currentPlayer?->category?->name ?? 'Uncategorized' }}</div>
+                        <div class="text-xs text-slate-500">Base Price: {{ number_format($auction?->currentPlayer?->base_price ?? 0, 2) }}</div>
+                        <div class="text-xs text-slate-500">Age: {{ $auction?->currentPlayer?->age ?? '-' }} | Country: {{ $auction?->currentPlayer?->country ?: '-' }}</div>
+                        <div class="text-xs text-slate-500 truncate">Previous Team: {{ $auction?->currentPlayer?->previous_team ?: '-' }}</div>
+                        <div class="text-xs text-slate-500">Current Bid: {{ number_format($auction?->current_bid ?? 0, 2) }}</div>
+                        <div class="text-xs text-slate-500">Step Up Amount: {{ number_format($tournament?->base_increment ?? 0, 2) }}</div>
+                        <div class="text-xs text-slate-500">Next Minimum Bid: {{ number_format(($auction?->current_bid ?? 0) + ($tournament?->base_increment ?? 0), 2) }}</div>
+                        <div class="text-xs text-slate-500">Leading Team: {{ $auction?->currentHighestTeam?->name ?? '-' }}</div>
+                    </div>
                 </div>
             </div>
 
@@ -118,10 +131,28 @@
         </div>
     </div>
 
-    <div class="sb-shiny-box p-3 md:p-4 flex items-center justify-between gap-3">
-        <div>
-            <p class="text-xs uppercase tracking-wide text-amber-700/80 font-semibold">Your Team Wallet</p>
-            <p class="text-3xl md:text-4xl font-black leading-none text-slate-900">{{ number_format($team?->wallet_balance ?? 0, 2) }}</p>
+    <div class="sb-shiny-box p-3 md:p-4 flex flex-wrap items-end justify-between gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 flex-1 min-w-[260px]">
+            <div>
+                <p class="text-xs uppercase tracking-wide text-amber-700/80 font-semibold">Your Team Wallet</p>
+                <p class="text-3xl md:text-4xl font-black leading-none text-slate-900">{{ number_format($team?->wallet_balance ?? 0, 2) }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Step Up Amount</p>
+                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($tournament?->base_increment ?? 0, 2) }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Admin Total Purse</p>
+                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($adminTotalPurse ?? 0, 2) }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Admin Utilized</p>
+                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($adminUtilizedPurse ?? 0, 2) }}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Admin Remaining</p>
+                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($adminRemainingPurse ?? 0, 2) }}</p>
+            </div>
         </div>
         <button wire:click="placeBid" wire:loading.attr="disabled" class="sb-btn-primary px-5 py-3 shadow-xl">Place Bid</button>
     </div>
@@ -140,11 +171,13 @@
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 @forelse($soldPlayers->take(4) as $player)
-                    <div class="rounded-xl border border-slate-200 bg-white/80 p-2.5 flex items-center gap-2">
+                    <div class="rounded-xl border border-slate-200 bg-white/80 p-2.5 flex items-start gap-2">
                         <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
                         <div class="min-w-0 flex-1">
                             <div class="text-sm font-semibold text-slate-900 truncate">{{ $player->name }}</div>
-                            <div class="text-xs text-slate-500">{{ number_format($player->final_price, 2) }}</div>
+                            <div class="text-xs text-slate-500">Category: {{ $player->category?->name ?? 'Uncategorized' }}</div>
+                            <div class="text-xs text-slate-500">Team: {{ $player->soldTeam?->name ?? '-' }}</div>
+                            <div class="text-xs text-slate-500">Base: {{ number_format($player->base_price ?? 0, 2) }} | Sold: {{ number_format($player->final_price ?? 0, 2) }}</div>
                         </div>
                     </div>
                 @empty
@@ -203,7 +236,11 @@
                                 <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-14 w-14 rounded-lg object-cover border border-slate-200" />
                                 <div class="min-w-0 flex-1 text-xs space-y-0.5">
                                     <div class="text-sm font-semibold text-slate-900 truncate">{{ $player->name }}</div>
-                                    <div class="text-slate-600">Sold Price: {{ number_format($player->final_price ?? 0, 2) }}</div>
+                                    <div class="text-slate-600">Category: {{ $player->category?->name ?? 'Uncategorized' }}</div>
+                                    <div class="text-slate-600">Team: {{ $player->soldTeam?->name ?? '-' }}</div>
+                                    <div class="text-slate-600">Base: {{ number_format($player->base_price ?? 0, 2) }} | Sold: {{ number_format($player->final_price ?? 0, 2) }}</div>
+                                    <div class="text-slate-600">Age: {{ $player->age ?? '-' }} | Country: {{ $player->country ?: '-' }}</div>
+                                    <div class="text-slate-600 truncate">Prev Team: {{ $player->previous_team ?: '-' }}</div>
                                 </div>
                             </div>
                         @empty

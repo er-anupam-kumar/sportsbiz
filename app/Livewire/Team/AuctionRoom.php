@@ -6,6 +6,7 @@ use App\Exceptions\AuctionException;
 use App\Models\Auction;
 use App\Models\Player;
 use App\Models\Team;
+use App\Models\Tournament;
 use App\Services\AuctionEngine;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -73,9 +74,35 @@ class AuctionRoom extends Component
 
     public function render()
     {
-        $auction = Auction::with('currentPlayer', 'currentHighestTeam')
+        $auction = Auction::with('currentPlayer.category', 'currentHighestTeam')
             ->where('tournament_id', $this->tournamentId)
             ->first();
+
+        $tournament = Tournament::query()
+            ->whereKey($this->tournamentId)
+            ->first(['id', 'name', 'purse_amount']);
+
+        $soldPlayers = Player::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->where('status', 'sold')
+            ->with('category:id,name', 'soldTeam:id,name,logo_path,primary_color,secondary_color')
+            ->orderByDesc('updated_at')
+            ->get([
+                'id',
+                'name',
+                'image_path',
+                'category_id',
+                'sold_team_id',
+                'base_price',
+                'final_price',
+                'age',
+                'country',
+                'previous_team',
+            ]);
+
+        $adminTotalPurse = (float) ($tournament?->purse_amount ?? 0);
+        $adminUtilizedPurse = (float) $soldPlayers->sum(fn (Player $player) => (float) ($player->final_price ?? 0));
+        $adminRemainingPurse = max($adminTotalPurse - $adminUtilizedPurse, 0);
 
         $remainingSeconds = 0;
         if ($auction?->ends_at) {
@@ -88,14 +115,13 @@ class AuctionRoom extends Component
 
         return view('livewire.team.auction-room', [
             'auction' => $auction,
+            'tournament' => $tournament,
             'remainingSeconds' => $remainingSeconds,
             'team' => Team::where('user_id', auth()->id())->where('tournament_id', $this->tournamentId)->first(),
-            'soldPlayers' => Player::query()
-                ->where('tournament_id', $this->tournamentId)
-                ->where('status', 'sold')
-                ->latest('updated_at')
-                ->limit(8)
-                ->get(['id', 'name', 'image_path', 'final_price']),
+            'soldPlayers' => $soldPlayers,
+            'adminTotalPurse' => $adminTotalPurse,
+            'adminUtilizedPurse' => $adminUtilizedPurse,
+            'adminRemainingPurse' => $adminRemainingPurse,
             'leaderboard' => Team::query()
                 ->where('tournament_id', $this->tournamentId)
                 ->orderByDesc('squad_count')
