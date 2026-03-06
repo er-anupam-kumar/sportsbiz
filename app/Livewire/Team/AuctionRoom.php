@@ -80,7 +80,11 @@ class AuctionRoom extends Component
 
         $tournament = Tournament::query()
             ->whereKey($this->tournamentId)
-            ->first(['id', 'name', 'purse_amount']);
+            ->first(['id', 'name', 'purse_amount', 'base_increment', 'auction_timer_seconds']);
+
+        $team = $this->teamId
+            ? Team::query()->whereKey($this->teamId)->first()
+            : Team::query()->where('user_id', auth()->id())->where('tournament_id', $this->tournamentId)->first();
 
         $soldPlayers = Player::query()
             ->where('tournament_id', $this->tournamentId)
@@ -117,7 +121,7 @@ class AuctionRoom extends Component
             'auction' => $auction,
             'tournament' => $tournament,
             'remainingSeconds' => $remainingSeconds,
-            'team' => Team::where('user_id', auth()->id())->where('tournament_id', $this->tournamentId)->first(),
+            'team' => $team,
             'soldPlayers' => $soldPlayers,
             'adminTotalPurse' => $adminTotalPurse,
             'adminUtilizedPurse' => $adminUtilizedPurse,

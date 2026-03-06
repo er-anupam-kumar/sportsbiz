@@ -73,8 +73,14 @@
     </div>
 
     @php
-        $timerTotal = max((int) ($auction?->tournament?->auction_timer_seconds ?? 30), 1);
+        $timerTotal = max((int) ($tournament?->auction_timer_seconds ?? 30), 1);
         $timerPct = max(0, min(100, (int) round(($remainingSeconds / $timerTotal) * 100)));
+        $stepUpAmount = (float) ($tournament?->base_increment ?? 0);
+        $teamWallet = (float) ($team?->wallet_balance ?? 0);
+        $nextMinimumBid = ($auction?->current_bid ?? 0) > 0
+            ? (float) (($auction?->current_bid ?? 0) + $stepUpAmount)
+            : (float) ($auction?->currentPlayer?->base_price ?? 0);
+        $canBidNext = $teamWallet >= $nextMinimumBid;
     @endphp
 
     <div class="sb-shiny-box p-3 md:p-4 space-y-3 relative overflow-hidden">
@@ -100,8 +106,8 @@
                         <div class="text-xs text-slate-500">Age: {{ $auction?->currentPlayer?->age ?? '-' }} | Country: {{ $auction?->currentPlayer?->country ?: '-' }}</div>
                         <div class="text-xs text-slate-500 truncate">Previous Team: {{ $auction?->currentPlayer?->previous_team ?: '-' }}</div>
                         <div class="text-xs text-slate-500">Current Bid: {{ number_format($auction?->current_bid ?? 0, 2) }}</div>
-                        <div class="text-xs text-slate-500">Step Up Amount: {{ number_format($tournament?->base_increment ?? 0, 2) }}</div>
-                        <div class="text-xs text-slate-500">Next Minimum Bid: {{ number_format(($auction?->current_bid ?? 0) + ($tournament?->base_increment ?? 0), 2) }}</div>
+                        <div class="text-xs text-slate-500">Step Up Amount: {{ number_format($stepUpAmount, 2) }}</div>
+                        <div class="text-xs text-slate-500">Next Minimum Bid: {{ number_format($nextMinimumBid, 2) }}</div>
                         <div class="text-xs text-slate-500">Leading Team: {{ $auction?->currentHighestTeam?->name ?? '-' }}</div>
                     </div>
                 </div>
@@ -131,27 +137,23 @@
         </div>
     </div>
 
-    <div class="sb-shiny-box p-3 md:p-4 flex flex-wrap items-end justify-between gap-3">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3 flex-1 min-w-[260px]">
-            <div>
-                <p class="text-xs uppercase tracking-wide text-amber-700/80 font-semibold">Your Team Wallet</p>
-                <p class="text-3xl md:text-4xl font-black leading-none text-slate-900">{{ number_format($team?->wallet_balance ?? 0, 2) }}</p>
+    <div class="sb-shiny-box p-2.5 md:p-3 flex flex-wrap items-end justify-between gap-2.5">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 flex-1 min-w-[260px]">
+            <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-wide text-amber-700/80 font-semibold">Your Team Wallet{{ $team?->name ? ' • '.$team->name : '' }}</p>
+                <p class="text-2xl md:text-3xl font-black leading-none {{ $canBidNext ? 'text-emerald-700' : 'text-red-700' }}">{{ number_format($teamWallet, 2) }}</p>
+                <p class="text-[11px] mt-0.5 {{ $canBidNext ? 'text-emerald-700' : 'text-red-700' }}">{{ $canBidNext ? 'Ready for next bid' : 'Insufficient for next bid' }}</p>
             </div>
-            <div>
-                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Step Up Amount</p>
-                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($tournament?->base_increment ?? 0, 2) }}</p>
+            <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-wide text-slate-600 font-semibold">Step Up</p>
+                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($stepUpAmount, 2) }}</p>
+                <p class="text-[11px] mt-0.5 {{ $canBidNext ? 'text-emerald-700' : 'text-red-700' }}">Next Min: {{ number_format($nextMinimumBid, 2) }}</p>
             </div>
-            <div>
-                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Admin Total Purse</p>
-                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($adminTotalPurse ?? 0, 2) }}</p>
-            </div>
-            <div>
-                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Admin Utilized</p>
-                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($adminUtilizedPurse ?? 0, 2) }}</p>
-            </div>
-            <div>
-                <p class="text-xs uppercase tracking-wide text-slate-600 font-semibold">Admin Remaining</p>
-                <p class="text-2xl md:text-3xl font-black leading-none text-slate-900">{{ number_format($adminRemainingPurse ?? 0, 2) }}</p>
+            <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-2">
+                <p class="text-[11px] uppercase tracking-wide text-slate-600 font-semibold">Admin Purse</p>
+                <p class="text-xs text-slate-600">Total: {{ number_format($adminTotalPurse ?? 0, 2) }}</p>
+                <p class="text-xs text-slate-600">Used: {{ number_format($adminUtilizedPurse ?? 0, 2) }}</p>
+                <p class="text-xs text-slate-600">Remaining: {{ number_format($adminRemainingPurse ?? 0, 2) }}</p>
             </div>
         </div>
         <button wire:click="placeBid" wire:loading.attr="disabled" class="sb-btn-primary px-5 py-3 shadow-xl">Place Bid</button>
