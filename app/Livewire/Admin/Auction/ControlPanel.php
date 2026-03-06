@@ -25,6 +25,7 @@ class ControlPanel extends Component
     public int $selectedTournamentId = 0;
     public ?int $selectedPlayerId = null;
     public string $startMode = 'manual';
+    public string $snapshotKey = '';
 
     private function safeBroadcast(object $event): void
     {
@@ -77,6 +78,38 @@ class ControlPanel extends Component
             ->value('current_player_id');
 
         $this->selectedPlayerId = $currentPlayerId ? (int) $currentPlayerId : null;
+        $this->snapshotKey = $this->buildSnapshotKey();
+    }
+
+    public function refreshAuctionState(): void
+    {
+        $currentSnapshot = $this->buildSnapshotKey();
+
+        if ($this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
+            $this->dispatch('auction-activity');
+        }
+
+        $this->snapshotKey = $currentSnapshot;
+    }
+
+    private function buildSnapshotKey(): string
+    {
+        $auction = Auction::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->first(['id', 'current_player_id', 'current_highest_team_id', 'current_bid', 'is_paused', 'ends_at']);
+
+        if (! $auction) {
+            return 'no-auction';
+        }
+
+        return implode('|', [
+            $auction->id,
+            $auction->current_player_id,
+            $auction->current_highest_team_id,
+            $auction->current_bid,
+            (int) $auction->is_paused,
+            optional($auction->ends_at)?->toIso8601String() ?? 'no-end',
+        ]);
     }
 
     public function loadTournament(): void

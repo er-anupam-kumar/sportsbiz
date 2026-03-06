@@ -26,6 +26,15 @@
             <p class="text-xs text-slate-500 mt-1">Use Polling for shared hosting. WebSocket requires long-running realtime infrastructure.</p>
             @error('realtimeMode') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
+        <div>
+            <label class="block text-sm font-medium">Sound Trigger Mode</label>
+            <select wire:model="soundTriggerMode" class="sb-input">
+                <option value="polling">Polling Snapshot (No Reverb required)</option>
+                <option value="websocket">WebSocket Events (Reverb/Pusher)</option>
+            </select>
+            <p class="text-xs text-slate-500 mt-1">Controls how hooter/sound is triggered on Admin and Team auction screens.</p>
+            @error('soundTriggerMode') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+        </div>
         <label class="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" wire:model="maintenanceMode">
             Enable Maintenance Mode (platform level flag)

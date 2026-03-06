@@ -15,6 +15,7 @@ class PlatformSettings extends Component
     public string $defaultGateway = 'stripe';
     public bool $maintenanceMode = false;
     public string $realtimeMode = 'polling';
+    public string $soundTriggerMode = 'polling';
 
     protected array $allowedCommands = [
         'cache:clear' => ['type' => 'artisan', 'command' => 'cache:clear'],
@@ -74,6 +75,7 @@ class PlatformSettings extends Component
         $this->defaultGateway = (string) Cache::get('platform_default_gateway', 'stripe');
         $this->maintenanceMode = (bool) Cache::get('platform_maintenance_mode', false);
         $this->realtimeMode = (string) Cache::get('platform_realtime_mode', 'polling');
+        $this->soundTriggerMode = (string) Cache::get('platform_sound_trigger_mode', 'polling');
     }
 
     public function save(): void
@@ -83,12 +85,14 @@ class PlatformSettings extends Component
             'defaultGateway' => ['required', 'in:stripe,razorpay'],
             'maintenanceMode' => ['boolean'],
             'realtimeMode' => ['required', 'in:polling,websocket'],
+            'soundTriggerMode' => ['required', 'in:polling,websocket'],
         ]);
 
         Cache::forever('platform_commission_percent', $this->commissionPercent);
         Cache::forever('platform_default_gateway', $this->defaultGateway);
         Cache::forever('platform_maintenance_mode', $this->maintenanceMode);
         Cache::forever('platform_realtime_mode', $this->realtimeMode);
+        Cache::forever('platform_sound_trigger_mode', $this->soundTriggerMode);
         $this->dispatch('toast', message: 'Platform settings saved.');
     }
 

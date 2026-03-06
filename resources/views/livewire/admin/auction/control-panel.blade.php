@@ -1,5 +1,5 @@
 <div
-    wire:poll.1s
+    wire:poll.1s="refreshAuctionState"
     class="space-y-3 overflow-x-hidden"
     x-on:auction-activity.window="playHooter()"
     x-on:player-live-set.window="playersModal = false"

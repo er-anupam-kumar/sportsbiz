@@ -17,6 +17,7 @@ class AuctionRoom extends Component
     public int $tournamentId;
     public ?int $teamId = null;
     public ?string $error = null;
+    public string $snapshotKey = '';
 
     public function mount(int $tournamentId): void
     {
@@ -25,6 +26,38 @@ class AuctionRoom extends Component
             ->where('user_id', auth()->id())
             ->where('tournament_id', $this->tournamentId)
             ->value('id');
+        $this->snapshotKey = $this->buildSnapshotKey();
+    }
+
+    public function refreshAuctionState(): void
+    {
+        $currentSnapshot = $this->buildSnapshotKey();
+
+        if ($this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
+            $this->dispatch('auction-activity');
+        }
+
+        $this->snapshotKey = $currentSnapshot;
+    }
+
+    private function buildSnapshotKey(): string
+    {
+        $auction = Auction::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->first(['id', 'current_player_id', 'current_highest_team_id', 'current_bid', 'is_paused', 'ends_at']);
+
+        if (! $auction) {
+            return 'no-auction';
+        }
+
+        return implode('|', [
+            $auction->id,
+            $auction->current_player_id,
+            $auction->current_highest_team_id,
+            $auction->current_bid,
+            (int) $auction->is_paused,
+            optional($auction->ends_at)?->toIso8601String() ?? 'no-end',
+        ]);
     }
 
     public function placeBid(AuctionEngine $auctionEngine): void
