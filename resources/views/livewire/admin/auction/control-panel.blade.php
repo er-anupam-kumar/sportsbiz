@@ -147,7 +147,7 @@
     </div>
     <div class="sb-shiny-box p-2.5">
         <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2">
-            <button @click="playClick()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-emerald-700 to-emerald-600 text-white rounded-lg font-semibold disabled:opacity-60">Start</button>
+            <button @click="playClick()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm sb-btn-primary !text-white border border-violet-300/60 font-semibold disabled:opacity-60">Start</button>
             <button @click="playClick()" wire:click="pauseAuction" wire:loading.attr="disabled" wire:target="pauseAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg font-semibold disabled:opacity-60">Pause</button>
             <button @click="playClick()" wire:click="resumeAuction" wire:loading.attr="disabled" wire:target="resumeAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-amber-700 to-emerald-700 text-white rounded-lg font-semibold disabled:opacity-60">Resume</button>
             <button @click="playClick()" wire:click="extendTimer(10)" wire:loading.attr="disabled" wire:target="extendTimer" class="h-9 w-full px-2 text-sm bg-slate-800 text-white rounded-lg font-semibold disabled:opacity-60">Extend +10s</button>
