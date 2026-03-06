@@ -8,6 +8,7 @@ use App\Models\Player;
 use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\AuctionEngine;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -18,10 +19,12 @@ class AuctionRoom extends Component
     public ?int $teamId = null;
     public ?string $error = null;
     public string $snapshotKey = '';
+    public string $soundTriggerMode = 'polling';
 
     public function mount(int $tournamentId): void
     {
         $this->tournamentId = $tournamentId;
+        $this->soundTriggerMode = (string) Cache::get('platform_sound_trigger_mode', 'polling');
         $this->teamId = Team::query()
             ->where('user_id', auth()->id())
             ->where('tournament_id', $this->tournamentId)
@@ -33,7 +36,7 @@ class AuctionRoom extends Component
     {
         $currentSnapshot = $this->buildSnapshotKey();
 
-        if ($this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
+        if ($this->soundTriggerMode === 'polling' && $this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
             $this->dispatch('auction-activity');
         }
 
@@ -87,6 +90,10 @@ class AuctionRoom extends Component
 
     public function handleBidPlaced(array $payload = []): void
     {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
         if ($this->teamId && isset($payload['team_id']) && (int) $payload['team_id'] === (int) $this->teamId) {
             return;
         }
@@ -96,11 +103,19 @@ class AuctionRoom extends Component
 
     public function handleAuctionActivity(): void
     {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
         $this->dispatch('auction-activity');
     }
 
     public function handlePlayerShuffled(): void
     {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
         $this->dispatch('auction-activity');
         $this->dispatch('auction-player-shuffled');
     }

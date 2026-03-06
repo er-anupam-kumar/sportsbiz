@@ -13,6 +13,7 @@ use App\Models\Team;
 use App\Models\Tournament;
 use App\Services\AuctionEngine;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -26,6 +27,7 @@ class ControlPanel extends Component
     public ?int $selectedPlayerId = null;
     public string $startMode = 'manual';
     public string $snapshotKey = '';
+    public string $soundTriggerMode = 'polling';
 
     private function safeBroadcast(object $event): void
     {
@@ -50,6 +52,10 @@ class ControlPanel extends Component
 
     public function handleAuctionActivity(array $payload = []): void
     {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
         if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
             return;
         }
@@ -59,6 +65,10 @@ class ControlPanel extends Component
 
     public function handlePlayerShuffled(array $payload = []): void
     {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
         if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
             return;
         }
@@ -71,6 +81,7 @@ class ControlPanel extends Component
     {
         $this->authorize('update', $tournament);
         $this->tournament = $tournament;
+        $this->soundTriggerMode = (string) Cache::get('platform_sound_trigger_mode', 'polling');
         $this->selectedTournamentId = (int) $tournament->id;
 
         $currentPlayerId = Auction::query()
@@ -85,7 +96,7 @@ class ControlPanel extends Component
     {
         $currentSnapshot = $this->buildSnapshotKey();
 
-        if ($this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
+        if ($this->soundTriggerMode === 'polling' && $this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
             $this->dispatch('auction-activity');
         }
 
