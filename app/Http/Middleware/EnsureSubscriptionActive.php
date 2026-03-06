@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Team;
 use App\Models\Subscription;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ class EnsureSubscriptionActive
         }
 
         $adminId = $user->hasRole('Admin') ? $user->id : $user->parent_admin_id;
+
+        if (! $adminId && $user->hasRole('Team')) {
+            $adminId = Team::query()->where('user_id', $user->id)->value('admin_id');
+        }
 
         $activeSubscription = Subscription::query()
             ->where('admin_id', $adminId)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Team;
 use App\Support\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -26,6 +27,10 @@ class EnsureTenantAccess
         }
 
         $adminId = $user->hasRole('Admin') ? $user->id : $user->parent_admin_id;
+
+        if (! $adminId && $user->hasRole('Team')) {
+            $adminId = Team::query()->where('user_id', $user->id)->value('admin_id');
+        }
 
         if (! $adminId) {
             abort(403, 'Tenant context could not be resolved.');
