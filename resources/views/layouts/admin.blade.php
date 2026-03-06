@@ -10,7 +10,7 @@
     @endif
     @livewireStyles
 </head>
-<body class="min-h-screen sb-shell-bg text-slate-900" x-data="{ mobileSidebar: false, toast: '' }" x-on:toast.window="toast = $event.detail.message; setTimeout(() => toast = '', 2200)">
+<body class="min-h-screen sb-shell-bg text-slate-900" x-data="{ mobileSidebar: false, desktopSidebarOpen: true, toast: '' }" x-on:toast.window="toast = $event.detail.message; setTimeout(() => toast = '', 2200)">
     @php
         $adminTournamentId = \App\Models\Tournament::query()->where('admin_id', auth()->id())->orderBy('name')->value('id');
         $currentRoute = request()->route()?->getName();
@@ -40,7 +40,7 @@
         }
     @endphp
     <div class="min-h-screen flex">
-        <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition md:translate-x-0 shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'">
+        <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : (desktopSidebarOpen ? '-translate-x-full md:translate-x-0' : '-translate-x-full md:-translate-x-full')">
             <div class="h-16 px-4 flex items-center gap-2 border-b border-white/20 tracking-wide">
                 <img src="{{ asset('images/sportsbiz-logo.svg') }}" alt="SportsBiz" class="h-8 w-auto" />
             </div>
@@ -113,9 +113,16 @@
             </nav>
         </aside>
 
-        <div class="flex-1 md:ml-64 h-screen flex flex-col overflow-hidden">
+        <div class="flex-1 h-screen flex flex-col overflow-hidden transition-all duration-200" :class="desktopSidebarOpen ? 'md:ml-64' : 'md:ml-0'">
             <header class="h-16 sb-glass sb-topbar px-4 md:px-6 flex items-center justify-between">
-                <button class="md:hidden px-3 py-2 rounded-lg sb-menu-btn flex items-center gap-1" @click="mobileSidebar = !mobileSidebar"><i data-lucide="menu" class="w-4 h-4"></i>Menu</button>
+                <div class="flex items-center gap-2">
+                    <button class="md:hidden px-3 py-2 rounded-lg sb-menu-btn flex items-center gap-1" @click="mobileSidebar = !mobileSidebar"><i data-lucide="menu" class="w-4 h-4"></i>Menu</button>
+                    <button class="hidden md:inline-flex px-3 py-2 rounded-lg sb-menu-btn items-center gap-1" @click="desktopSidebarOpen = !desktopSidebarOpen">
+                        <i data-lucide="panel-left-close" class="w-4 h-4" x-show="desktopSidebarOpen"></i>
+                        <i data-lucide="panel-left-open" class="w-4 h-4" x-show="!desktopSidebarOpen" x-cloak></i>
+                        <span x-text="desktopSidebarOpen ? 'Hide Sidebar' : 'Show Sidebar'"></span>
+                    </button>
+                </div>
                 <div class="hidden md:block text-sm font-semibold sb-brand-gradient">Client Control Bench</div>
                 <div class="relative" x-data="{ open: false }">
                     <button class="px-3 py-2 rounded-lg sb-user-btn font-medium flex items-center gap-2" @click="open = !open"><i data-lucide="user-circle-2" class="w-4 h-4"></i>{{ auth()->user()?->name ?? 'User' }}</button>

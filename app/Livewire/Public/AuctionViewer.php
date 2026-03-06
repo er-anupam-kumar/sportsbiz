@@ -35,24 +35,43 @@ class AuctionViewer extends Component
         }
 
         return [
-            "echo:tournament.public.{$this->tournamentId},BidPlaced" => 'handleAuctionActivity',
-            "echo:tournament.public.{$this->tournamentId},TimerExtended" => 'handleAuctionActivity',
-            "echo:tournament.public.{$this->tournamentId},PlayerSold" => 'handleAuctionActivity',
-            "echo:tournament.public.{$this->tournamentId},AuctionStarted" => 'handleAuctionActivity',
-            "echo:tournament.public.{$this->tournamentId},AuctionPaused" => 'handleAuctionActivity',
+            "echo:tournament.public.{$this->tournamentId},BidPlaced" => 'handleBidPlaced',
+            "echo:tournament.public.{$this->tournamentId},TimerExtended" => 'handleTimerExtended',
+            "echo:tournament.public.{$this->tournamentId},PlayerSold" => 'handlePlayerSold',
+            "echo:tournament.public.{$this->tournamentId},AuctionStarted" => 'handleAuctionStarted',
+            "echo:tournament.public.{$this->tournamentId},AuctionPaused" => 'handleAuctionPaused',
             "echo:tournament.public.{$this->tournamentId},PlayerShuffled" => 'handlePlayerShuffled',
         ];
     }
 
-    public function handleAuctionActivity(): void
+    public function handleBidPlaced(): void
     {
-        $this->dispatch('auction-activity');
+        $this->dispatch('auction-activity', action: 'bid');
+    }
+
+    public function handleTimerExtended(): void
+    {
+        $this->dispatch('auction-activity', action: 'timer_extended');
+    }
+
+    public function handlePlayerSold(): void
+    {
+        $this->dispatch('auction-activity', action: 'player_sold');
+    }
+
+    public function handleAuctionStarted(): void
+    {
+        $this->dispatch('auction-activity', action: 'auction_started');
+    }
+
+    public function handleAuctionPaused(): void
+    {
+        $this->dispatch('auction-activity', action: 'auction_paused');
     }
 
     public function handlePlayerShuffled(): void
     {
-        $this->dispatch('auction-activity');
-        $this->dispatch('auction-player-shuffled');
+        $this->dispatch('auction-activity', action: 'player_shuffled');
     }
 
     public function refreshAuctionState(): void
@@ -60,7 +79,7 @@ class AuctionViewer extends Component
         $currentSnapshot = $this->buildSnapshotKey();
 
         if ($this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
-            $this->dispatch('auction-activity');
+            $this->dispatch('auction-activity', action: $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot));
         }
 
         $this->snapshotKey = $currentSnapshot;
@@ -84,6 +103,38 @@ class AuctionViewer extends Component
             (int) $auction->is_paused,
             optional($auction->ends_at)?->toIso8601String() ?? 'no-end',
         ]);
+    }
+
+    private function detectActionFromSnapshots(string $previous, string $current): string
+    {
+        $old = explode('|', $previous);
+        $new = explode('|', $current);
+
+        if (count($old) < 6 || count($new) < 6) {
+            return 'state_changed';
+        }
+
+        if (($old[4] ?? null) !== ($new[4] ?? null)) {
+            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
+        }
+
+        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
+            return 'bid';
+        }
+
+        if (($old[1] ?? null) !== ($new[1] ?? null)) {
+            if (($new[1] ?? null) === '' || ($new[1] ?? null) === null) {
+                return 'player_sold';
+            }
+
+            return 'player_shuffled';
+        }
+
+        if (($old[5] ?? null) !== ($new[5] ?? null)) {
+            return 'timer_extended';
+        }
+
+        return 'state_changed';
     }
 
     public function render()

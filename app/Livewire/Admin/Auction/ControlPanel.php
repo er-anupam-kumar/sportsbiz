@@ -41,16 +41,16 @@ class ControlPanel extends Component
     public function getListeners(): array
     {
         return [
-            "echo-presence:tournament.{$this->tournament->id},BidPlaced" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournament->id},TimerExtended" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournament->id},PlayerSold" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournament->id},AuctionStarted" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournament->id},AuctionPaused" => 'handleAuctionActivity',
+            "echo-presence:tournament.{$this->tournament->id},BidPlaced" => 'handleBidPlaced',
+            "echo-presence:tournament.{$this->tournament->id},TimerExtended" => 'handleTimerExtended',
+            "echo-presence:tournament.{$this->tournament->id},PlayerSold" => 'handlePlayerSold',
+            "echo-presence:tournament.{$this->tournament->id},AuctionStarted" => 'handleAuctionStarted',
+            "echo-presence:tournament.{$this->tournament->id},AuctionPaused" => 'handleAuctionPaused',
             "echo-presence:tournament.{$this->tournament->id},PlayerShuffled" => 'handlePlayerShuffled',
         ];
     }
 
-    public function handleAuctionActivity(array $payload = []): void
+    public function handleBidPlaced(array $payload = []): void
     {
         if ($this->soundTriggerMode !== 'websocket') {
             return;
@@ -60,7 +60,59 @@ class ControlPanel extends Component
             return;
         }
 
-        $this->dispatch('auction-activity');
+        $this->dispatch('auction-activity', action: 'bid');
+    }
+
+    public function handleTimerExtended(array $payload = []): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'timer_extended');
+    }
+
+    public function handlePlayerSold(array $payload = []): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'player_sold');
+    }
+
+    public function handleAuctionStarted(array $payload = []): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'auction_started');
+    }
+
+    public function handleAuctionPaused(array $payload = []): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        if (isset($payload['actor_id']) && (int) $payload['actor_id'] === (int) auth()->id()) {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'auction_paused');
     }
 
     public function handlePlayerShuffled(array $payload = []): void
@@ -73,8 +125,7 @@ class ControlPanel extends Component
             return;
         }
 
-        $this->dispatch('auction-activity');
-        $this->dispatch('auction-player-shuffled');
+        $this->dispatch('auction-activity', action: 'player_shuffled');
     }
 
     public function mount(Tournament $tournament): void
@@ -97,10 +148,42 @@ class ControlPanel extends Component
         $currentSnapshot = $this->buildSnapshotKey();
 
         if ($this->soundTriggerMode === 'polling' && $this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
-            $this->dispatch('auction-activity');
+            $this->dispatch('auction-activity', action: $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot));
         }
 
         $this->snapshotKey = $currentSnapshot;
+    }
+
+    private function detectActionFromSnapshots(string $previous, string $current): string
+    {
+        $old = explode('|', $previous);
+        $new = explode('|', $current);
+
+        if (count($old) < 6 || count($new) < 6) {
+            return 'state_changed';
+        }
+
+        if (($old[4] ?? null) !== ($new[4] ?? null)) {
+            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
+        }
+
+        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
+            return 'bid';
+        }
+
+        if (($old[1] ?? null) !== ($new[1] ?? null)) {
+            if (($new[1] ?? null) === '' || ($new[1] ?? null) === null) {
+                return 'player_sold';
+            }
+
+            return 'player_shuffled';
+        }
+
+        if (($old[5] ?? null) !== ($new[5] ?? null)) {
+            return 'timer_extended';
+        }
+
+        return 'state_changed';
     }
 
     private function buildSnapshotKey(): string

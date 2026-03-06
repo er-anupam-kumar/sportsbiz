@@ -1,7 +1,7 @@
 <div
     wire:poll.1s="refreshAuctionState"
     class="space-y-3 overflow-x-hidden"
-    x-on:auction-activity.window="playHooter()"
+    x-on:auction-activity.window="playEventCue($event.detail?.action || 'state_changed')"
     x-on:player-live-set.window="playersModal = false"
     x-on:keydown.escape.window="playersModal = false"
     x-data="{
@@ -16,7 +16,7 @@
                 this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
         },
-        playTone(freq = 880, duration = 0.06, type = 'sine', volume = 0.03) {
+        playTone(freq = 880, duration = 0.06, type = 'sine', volume = 0.08) {
             if (!this.soundEnabled) return;
             this.ensureAudio();
             const oscillator = this.audioCtx.createOscillator();
@@ -30,15 +30,64 @@
             oscillator.stop(this.audioCtx.currentTime + duration);
         },
         playClick() {
-            this.playTone(620, 0.05, 'square', 0.02);
+            this.playTone(620, 0.05, 'square', 0.06);
         },
-        playHooter() {
+        playActivityCue() {
             const nowTs = Date.now();
             if (nowTs - this.lastHooterAt < this.hooterCooldownMs) return;
             this.lastHooterAt = nowTs;
-            this.playTone(740, 0.12, 'sawtooth', 0.04);
-            setTimeout(() => this.playTone(660, 0.12, 'sawtooth', 0.04), 130);
-            setTimeout(() => this.playTone(740, 0.16, 'sawtooth', 0.045), 260);
+            this.playTone(740, 0.12, 'sawtooth', 0.095);
+            setTimeout(() => this.playTone(660, 0.12, 'sawtooth', 0.095), 130);
+            setTimeout(() => this.playTone(740, 0.16, 'sawtooth', 0.105), 260);
+        },
+        playShuffleCue() {
+            this.playTone(500, 0.08, 'triangle', 0.08);
+            setTimeout(() => this.playTone(760, 0.1, 'triangle', 0.08), 85);
+        },
+        playStartCue() {
+            this.playTone(620, 0.06, 'square', 0.07);
+            setTimeout(() => this.playTone(760, 0.07, 'square', 0.075), 75);
+            setTimeout(() => this.playTone(920, 0.09, 'square', 0.08), 150);
+        },
+        playPauseCue() {
+            this.playTone(520, 0.08, 'sine', 0.075);
+            setTimeout(() => this.playTone(420, 0.12, 'sine', 0.08), 90);
+        },
+        playSoldCue() {
+            this.playTone(700, 0.07, 'sawtooth', 0.08);
+            setTimeout(() => this.playTone(860, 0.1, 'sawtooth', 0.085), 80);
+        },
+        playUnsoldCue() {
+            this.playTone(460, 0.07, 'sine', 0.08);
+            setTimeout(() => this.playTone(360, 0.1, 'sine', 0.085), 85);
+        },
+        playTimerCue() {
+            this.playTone(560, 0.05, 'square', 0.065);
+            setTimeout(() => this.playTone(620, 0.05, 'square', 0.065), 60);
+        },
+        playEventCue(action) {
+            switch (action) {
+                case 'bid':
+                    this.playActivityCue();
+                    break;
+                case 'player_shuffled':
+                    this.playShuffleCue();
+                    break;
+                case 'auction_started':
+                    this.playStartCue();
+                    break;
+                case 'auction_paused':
+                    this.playPauseCue();
+                    break;
+                case 'player_sold':
+                    this.playSoldCue();
+                    break;
+                case 'timer_extended':
+                    this.playTimerCue();
+                    break;
+                default:
+                    this.playActivityCue();
+            }
         }
     }"
 >
@@ -147,12 +196,12 @@
     </div>
     <div class="sb-shiny-box p-2.5">
         <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
-            <button @click="playClick()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm sb-btn-primary !text-white border border-violet-300/60 font-semibold disabled:opacity-60">Start</button>
-            <button @click="playClick()" wire:click="pauseAuction" wire:loading.attr="disabled" wire:target="pauseAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg font-semibold disabled:opacity-60">Pause</button>
+            <button @click="playStartCue()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm sb-btn-primary !text-white border border-violet-300/60 font-semibold disabled:opacity-60">Start</button>
+            <button @click="playPauseCue()" wire:click="pauseAuction" wire:loading.attr="disabled" wire:target="pauseAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg font-semibold disabled:opacity-60">Pause</button>
             <button @click="playClick()" wire:click="extendTimer(10)" wire:loading.attr="disabled" wire:target="extendTimer" class="h-9 w-full px-2 text-sm bg-slate-800 text-white rounded-lg font-semibold disabled:opacity-60">Extend +10s</button>
-            <button @click="playClick()" wire:click="markSold" wire:loading.attr="disabled" wire:target="markSold" class="h-9 w-full px-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark SOLD</button>
-            <button @click="playClick()" wire:click="markUnsold" wire:loading.attr="disabled" wire:target="markUnsold" class="h-9 w-full px-2 text-sm bg-amber-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark UNSOLD</button>
-            <button @click="playClick()" wire:click="shufflePlayers" wire:loading.attr="disabled" wire:target="shufflePlayers" class="h-9 w-full px-2 text-sm bg-violet-600 text-white rounded-lg font-semibold disabled:opacity-60">Shuffle Players</button>
+            <button @click="playSoldCue()" wire:click="markSold" wire:loading.attr="disabled" wire:target="markSold" class="h-9 w-full px-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark SOLD</button>
+            <button @click="playUnsoldCue()" wire:click="markUnsold" wire:loading.attr="disabled" wire:target="markUnsold" class="h-9 w-full px-2 text-sm bg-amber-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark UNSOLD</button>
+            <button @click="playShuffleCue()" wire:click="shufflePlayers" wire:loading.attr="disabled" wire:target="shufflePlayers" class="h-9 w-full px-2 text-sm bg-violet-600 text-white rounded-lg font-semibold disabled:opacity-60">Shuffle Players</button>
         </div>
     </div>
     <div class="sb-shiny-box p-3 md:p-4 space-y-2 relative">

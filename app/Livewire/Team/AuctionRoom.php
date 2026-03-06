@@ -37,7 +37,7 @@ class AuctionRoom extends Component
         $currentSnapshot = $this->buildSnapshotKey();
 
         if ($this->soundTriggerMode === 'polling' && $this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
-            $this->dispatch('auction-activity');
+            $this->dispatch('auction-activity', action: $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot));
         }
 
         $this->snapshotKey = $currentSnapshot;
@@ -80,10 +80,10 @@ class AuctionRoom extends Component
     {
         return [
             "echo-presence:tournament.{$this->tournamentId},BidPlaced" => 'handleBidPlaced',
-            "echo-presence:tournament.{$this->tournamentId},TimerExtended" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournamentId},PlayerSold" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournamentId},AuctionStarted" => 'handleAuctionActivity',
-            "echo-presence:tournament.{$this->tournamentId},AuctionPaused" => 'handleAuctionActivity',
+            "echo-presence:tournament.{$this->tournamentId},TimerExtended" => 'handleTimerExtended',
+            "echo-presence:tournament.{$this->tournamentId},PlayerSold" => 'handlePlayerSold',
+            "echo-presence:tournament.{$this->tournamentId},AuctionStarted" => 'handleAuctionStarted',
+            "echo-presence:tournament.{$this->tournamentId},AuctionPaused" => 'handleAuctionPaused',
             "echo-presence:tournament.{$this->tournamentId},PlayerShuffled" => 'handlePlayerShuffled',
         ];
     }
@@ -98,16 +98,43 @@ class AuctionRoom extends Component
             return;
         }
 
-        $this->dispatch('auction-activity');
+        $this->dispatch('auction-activity', action: 'bid');
     }
 
-    public function handleAuctionActivity(): void
+    public function handleTimerExtended(): void
     {
         if ($this->soundTriggerMode !== 'websocket') {
             return;
         }
 
-        $this->dispatch('auction-activity');
+        $this->dispatch('auction-activity', action: 'timer_extended');
+    }
+
+    public function handlePlayerSold(): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'player_sold');
+    }
+
+    public function handleAuctionStarted(): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'auction_started');
+    }
+
+    public function handleAuctionPaused(): void
+    {
+        if ($this->soundTriggerMode !== 'websocket') {
+            return;
+        }
+
+        $this->dispatch('auction-activity', action: 'auction_paused');
     }
 
     public function handlePlayerShuffled(): void
@@ -116,8 +143,39 @@ class AuctionRoom extends Component
             return;
         }
 
-        $this->dispatch('auction-activity');
-        $this->dispatch('auction-player-shuffled');
+        $this->dispatch('auction-activity', action: 'player_shuffled');
+    }
+
+    private function detectActionFromSnapshots(string $previous, string $current): string
+    {
+        $old = explode('|', $previous);
+        $new = explode('|', $current);
+
+        if (count($old) < 6 || count($new) < 6) {
+            return 'state_changed';
+        }
+
+        if (($old[4] ?? null) !== ($new[4] ?? null)) {
+            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
+        }
+
+        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
+            return 'bid';
+        }
+
+        if (($old[1] ?? null) !== ($new[1] ?? null)) {
+            if (($new[1] ?? null) === '' || ($new[1] ?? null) === null) {
+                return 'player_sold';
+            }
+
+            return 'player_shuffled';
+        }
+
+        if (($old[5] ?? null) !== ($new[5] ?? null)) {
+            return 'timer_extended';
+        }
+
+        return 'state_changed';
     }
 
     public function render()

@@ -1,7 +1,7 @@
 <div
     wire:poll.1s="refreshAuctionState"
     class="{{ $darkMode ? 'bg-slate-950 text-slate-100' : 'sb-shell-bg text-slate-900' }} {{ $projectorMode ? 'min-h-screen' : 'min-h-[calc(100vh-2rem)]' }} {{ $compactMode ? 'p-3 lg:p-3.5 space-y-2.5' : 'p-4 lg:p-5 space-y-3' }} rounded-2xl overflow-x-hidden"
-    x-on:auction-activity.window="playHooter()"
+    x-on:auction-activity.window="playEventCue($event.detail?.action || 'state_changed')"
     x-on:keydown.escape.window="soldPlayersModal = false"
     x-data="{
         lastBid: {{ (float) ($auction?->current_bid ?? 0) }},
@@ -21,7 +21,7 @@
                 this.audioCtx.resume();
             }
         },
-        playTone(freq = 740, duration = 0.12, type = 'sawtooth', volume = 0.04){
+        playTone(freq = 740, duration = 0.12, type = 'sawtooth', volume = 0.085){
             if (!this.soundEnabled) return;
             this.ensureAudio();
             const oscillator = this.audioCtx.createOscillator();
@@ -34,13 +34,62 @@
             oscillator.start();
             oscillator.stop(this.audioCtx.currentTime + duration);
         },
-        playHooter(){
+        playActivityCue(){
             const nowTs = Date.now();
             if (nowTs - this.lastHooterAt < this.hooterCooldownMs) return;
             this.lastHooterAt = nowTs;
-            this.playTone(740, 0.12, 'sawtooth', 0.04);
-            setTimeout(() => this.playTone(660, 0.12, 'sawtooth', 0.04), 130);
-            setTimeout(() => this.playTone(740, 0.16, 'sawtooth', 0.045), 260);
+            this.playTone(740, 0.12, 'sawtooth', 0.095);
+            setTimeout(() => this.playTone(660, 0.12, 'sawtooth', 0.095), 130);
+            setTimeout(() => this.playTone(740, 0.16, 'sawtooth', 0.105), 260);
+        },
+        playShuffleCue() {
+            this.playTone(500, 0.08, 'triangle', 0.08);
+            setTimeout(() => this.playTone(760, 0.1, 'triangle', 0.08), 85);
+        },
+        playBidCue() {
+            this.playTone(860, 0.06, 'square', 0.07);
+            setTimeout(() => this.playTone(980, 0.08, 'square', 0.075), 70);
+        },
+        playStartCue() {
+            this.playTone(620, 0.06, 'square', 0.07);
+            setTimeout(() => this.playTone(760, 0.07, 'square', 0.075), 75);
+            setTimeout(() => this.playTone(920, 0.09, 'square', 0.08), 150);
+        },
+        playPauseCue() {
+            this.playTone(520, 0.08, 'sine', 0.075);
+            setTimeout(() => this.playTone(420, 0.12, 'sine', 0.08), 90);
+        },
+        playSoldCue() {
+            this.playTone(700, 0.07, 'sawtooth', 0.08);
+            setTimeout(() => this.playTone(860, 0.1, 'sawtooth', 0.085), 80);
+        },
+        playTimerCue() {
+            this.playTone(560, 0.05, 'square', 0.065);
+            setTimeout(() => this.playTone(620, 0.05, 'square', 0.065), 60);
+        },
+        playEventCue(action) {
+            switch (action) {
+                case 'bid':
+                    this.playBidCue();
+                    break;
+                case 'player_shuffled':
+                    this.playShuffleCue();
+                    break;
+                case 'auction_started':
+                    this.playStartCue();
+                    break;
+                case 'auction_paused':
+                    this.playPauseCue();
+                    break;
+                case 'player_sold':
+                    this.playSoldCue();
+                    break;
+                case 'timer_extended':
+                    this.playTimerCue();
+                    break;
+                default:
+                    this.playActivityCue();
+            }
         },
         onRefresh(current){ if(current > this.lastBid){ this.highlight = true; setTimeout(() => this.highlight = false, 1200); } this.lastBid = current; }
     }"
