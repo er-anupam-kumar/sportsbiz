@@ -37,7 +37,12 @@ class AuctionRoom extends Component
         $currentSnapshot = $this->buildSnapshotKey();
 
         if ($this->soundTriggerMode === 'polling' && $this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
-            $this->dispatch('auction-activity', action: $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot));
+            $action = $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot);
+            $this->dispatch('auction-activity', action: $action);
+
+            if ($action === 'player_sold') {
+                $this->dispatch('auction-player-locked', player: $this->resolveLockedPlayerCard());
+            }
         }
 
         $this->snapshotKey = $currentSnapshot;
@@ -137,13 +142,52 @@ class AuctionRoom extends Component
         $this->dispatch('auction-activity', action: 'timer_extended');
     }
 
-    public function handlePlayerSold(): void
+    public function handlePlayerSold(array $payload = []): void
     {
         if ($this->soundTriggerMode !== 'websocket') {
             return;
         }
 
         $this->dispatch('auction-activity', action: 'player_sold');
+        $this->dispatch('auction-player-locked', player: $this->resolveLockedPlayerCard($payload));
+    }
+
+    private function resolveLockedPlayerCard(array $payload = []): ?array
+    {
+        $playerId = (int) ($payload['player_id'] ?? 0);
+        $teamId = (int) ($payload['team_id'] ?? 0);
+        $amount = array_key_exists('amount', $payload) ? (float) $payload['amount'] : null;
+
+        $playerQuery = Player::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->with('category:id,name');
+
+        $player = $playerId > 0
+            ? $playerQuery->whereKey($playerId)->first(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price', 'sold_team_id'])
+            : $playerQuery->where('status', 'sold')->orderByDesc('updated_at')->first(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price', 'sold_team_id']);
+
+        if (! $player) {
+            return null;
+        }
+
+        if ($teamId <= 0) {
+            $teamId = (int) ($player->sold_team_id ?? 0);
+        }
+
+        $team = $teamId > 0
+            ? Team::query()->whereKey($teamId)->first(['id', 'name', 'logo_path'])
+            : null;
+
+        return [
+            'id' => (int) $player->id,
+            'name' => $player->name,
+            'serial_no' => $player->serial_no,
+            'image_url' => $player->image_url,
+            'category' => $player->category?->name,
+            'team' => $team?->name,
+            'team_logo_url' => $team?->logo_url,
+            'amount' => $amount ?? (float) ($player->final_price ?? 0),
+        ];
     }
 
     public function handleAuctionStarted(): void
@@ -182,20 +226,20 @@ class AuctionRoom extends Component
             return 'state_changed';
         }
 
-        if (($old[4] ?? null) !== ($new[4] ?? null)) {
-            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
-        }
-
-        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
-            return 'bid';
-        }
-
         if (($old[1] ?? null) !== ($new[1] ?? null)) {
             if (($new[1] ?? null) === '' || ($new[1] ?? null) === null) {
                 return 'player_sold';
             }
 
             return 'player_shuffled';
+        }
+
+        if (($old[4] ?? null) !== ($new[4] ?? null)) {
+            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
+        }
+
+        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
+            return 'bid';
         }
 
         if (($old[5] ?? null) !== ($new[5] ?? null)) {
@@ -207,13 +251,13 @@ class AuctionRoom extends Component
 
     public function render()
     {
-        $auction = Auction::with('currentPlayer.category', 'currentHighestTeam')
+        $auction = Auction::with('currentPlayer:id,tournament_id,category_id,name,serial_no,image_path,base_price,age,country,previous_team,status', 'currentPlayer.category', 'currentHighestTeam')
             ->where('tournament_id', $this->tournamentId)
             ->first();
 
         $tournament = Tournament::query()
             ->whereKey($this->tournamentId)
-            ->first(['id', 'name', 'purse_amount', 'base_increment', 'auction_timer_seconds']);
+            ->first(['id', 'name', 'banner_path', 'purse_amount', 'base_increment', 'auction_timer_seconds', 'bidding_type']);
 
         $team = $this->teamId
             ? Team::query()->whereKey($this->teamId)->first()
@@ -227,6 +271,7 @@ class AuctionRoom extends Component
             ->get([
                 'id',
                 'name',
+                'serial_no',
                 'image_path',
                 'category_id',
                 'sold_team_id',
@@ -263,7 +308,7 @@ class AuctionRoom extends Component
                 ->where('tournament_id', $this->tournamentId)
                 ->orderByDesc('squad_count')
                 ->limit(6)
-                ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'squad_count']),
+                ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'wallet_balance', 'squad_count']),
         ]);
     }
 }

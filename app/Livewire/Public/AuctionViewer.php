@@ -5,6 +5,7 @@ namespace App\Livewire\Public;
 use App\Models\Auction;
 use App\Models\Player;
 use App\Models\Team;
+use App\Models\Tournament;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
@@ -15,7 +16,6 @@ class AuctionViewer extends Component
     public bool $darkMode = false;
     public bool $compactMode = false;
     public string $snapshotKey = '';
-    public ?int $selectedTeamId = null;
     public string $realtimeMode = 'polling';
 
     public function mount(int $tournamentId): void
@@ -54,9 +54,10 @@ class AuctionViewer extends Component
         $this->dispatch('auction-activity', action: 'timer_extended');
     }
 
-    public function handlePlayerSold(): void
+    public function handlePlayerSold(array $payload = []): void
     {
         $this->dispatch('auction-activity', action: 'player_sold');
+        $this->dispatch('auction-player-locked', player: $this->resolveLockedPlayerCard($payload));
     }
 
     public function handleAuctionStarted(): void
@@ -79,7 +80,12 @@ class AuctionViewer extends Component
         $currentSnapshot = $this->buildSnapshotKey();
 
         if ($this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
-            $this->dispatch('auction-activity', action: $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot));
+            $action = $this->detectActionFromSnapshots($this->snapshotKey, $currentSnapshot);
+            $this->dispatch('auction-activity', action: $action);
+
+            if ($action === 'player_sold') {
+                $this->dispatch('auction-player-locked', player: $this->resolveLockedPlayerCard());
+            }
         }
 
         $this->snapshotKey = $currentSnapshot;
@@ -114,20 +120,20 @@ class AuctionViewer extends Component
             return 'state_changed';
         }
 
-        if (($old[4] ?? null) !== ($new[4] ?? null)) {
-            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
-        }
-
-        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
-            return 'bid';
-        }
-
         if (($old[1] ?? null) !== ($new[1] ?? null)) {
             if (($new[1] ?? null) === '' || ($new[1] ?? null) === null) {
                 return 'player_sold';
             }
 
             return 'player_shuffled';
+        }
+
+        if (($old[4] ?? null) !== ($new[4] ?? null)) {
+            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
+        }
+
+        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
+            return 'bid';
         }
 
         if (($old[5] ?? null) !== ($new[5] ?? null)) {
@@ -137,11 +143,53 @@ class AuctionViewer extends Component
         return 'state_changed';
     }
 
+    private function resolveLockedPlayerCard(array $payload = []): ?array
+    {
+        $playerId = (int) ($payload['player_id'] ?? 0);
+        $teamId = (int) ($payload['team_id'] ?? 0);
+        $amount = array_key_exists('amount', $payload) ? (float) $payload['amount'] : null;
+
+        $playerQuery = Player::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->with('category:id,name');
+
+        $player = $playerId > 0
+            ? $playerQuery->whereKey($playerId)->first(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price', 'sold_team_id'])
+            : $playerQuery->where('status', 'sold')->orderByDesc('updated_at')->first(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price', 'sold_team_id']);
+
+        if (! $player) {
+            return null;
+        }
+
+        if ($teamId <= 0) {
+            $teamId = (int) ($player->sold_team_id ?? 0);
+        }
+
+        $team = $teamId > 0
+            ? Team::query()->whereKey($teamId)->first(['id', 'name', 'logo_path'])
+            : null;
+
+        return [
+            'id' => (int) $player->id,
+            'name' => $player->name,
+            'serial_no' => $player->serial_no,
+            'image_url' => $player->image_url,
+            'category' => $player->category?->name,
+            'team' => $team?->name,
+            'team_logo_url' => $team?->logo_url,
+            'amount' => $amount ?? (float) ($player->final_price ?? 0),
+        ];
+    }
+
     public function render()
     {
-        $auction = Auction::with('currentPlayer', 'currentHighestTeam')
+        $auction = Auction::with('currentPlayer:id,tournament_id,name,serial_no,image_path,status', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
             ->where('tournament_id', $this->tournamentId)
             ->first();
+
+        $tournament = Tournament::query()
+            ->whereKey($this->tournamentId)
+            ->first(['id', 'name', 'banner_path', 'purse_amount']);
 
         $soldPlayers = Player::query()
             ->where('tournament_id', $this->tournamentId)
@@ -152,6 +200,7 @@ class AuctionViewer extends Component
             ->get([
                 'id',
                 'name',
+                'serial_no',
                 'image_path',
                 'category_id',
                 'sold_team_id',
@@ -161,20 +210,6 @@ class AuctionViewer extends Component
                 'country',
                 'previous_team',
             ]);
-
-        $teamwiseCategoryPlayers = $soldPlayers
-            ->groupBy(fn (Player $player) => (string) ($player->sold_team_id ?? 0))
-            ->map(function ($teamPlayers) {
-                $team = $teamPlayers->first()?->soldTeam;
-
-                return [
-                    'team' => $team,
-                    'count' => $teamPlayers->count(),
-                    'categories' => $teamPlayers->groupBy(fn (Player $player) => $player->category?->name ?: 'Uncategorized'),
-                ];
-            })
-            ->sortByDesc('count')
-            ->values();
 
         $remainingSeconds = 0;
         if ($auction?->ends_at) {
@@ -194,9 +229,13 @@ class AuctionViewer extends Component
 
         return view('livewire.public.auction-viewer', [
             'auction' => $auction,
+            'tournament' => $tournament,
             'soldPlayers' => $soldPlayers,
-            'teamwiseCategoryPlayers' => $teamwiseCategoryPlayers,
-            'leaderboard' => Team::where('tournament_id', $this->tournamentId)->orderByDesc('squad_count')->limit(5)->get(),
+            'leaderboard' => Team::query()
+                ->where('tournament_id', $this->tournamentId)
+                ->orderByDesc('squad_count')
+                ->limit(6)
+                ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'wallet_balance', 'squad_count']),
             'remainingSeconds' => $remainingSeconds,
             'timerPct' => $timerPct,
             'projectorMode' => $this->projectorMode,

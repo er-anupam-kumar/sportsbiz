@@ -52,7 +52,7 @@
                 @if($logo)
                     <img src="{{ $logo->temporaryUrl() }}" alt="Team logo preview" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
                 @elseif($existingLogoPath)
-                    <img src="{{ asset('storage/'.$existingLogoPath) }}" alt="Team logo" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
+                    <img src="{{ str_starts_with($existingLogoPath, 'http') ? $existingLogoPath : asset('storage/'.$existingLogoPath) }}" alt="Team logo" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
                 @endif
             </div>
             <div>

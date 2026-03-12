@@ -56,4 +56,20 @@ class Team extends Model
     {
         return $this->hasMany(TeamWalletTransaction::class);
     }
+
+    public function soldPlayers(): HasMany
+    {
+        return $this->hasMany(Player::class, 'sold_team_id');
+    }
+
+    public function getLogoUrlAttribute(): string
+    {
+        if (! $this->logo_path) {
+            return asset('images/team-placeholder.svg');
+        }
+
+        return str_starts_with($this->logo_path, 'http')
+            ? $this->logo_path
+            : asset('storage/'.$this->logo_path);
+    }
 }

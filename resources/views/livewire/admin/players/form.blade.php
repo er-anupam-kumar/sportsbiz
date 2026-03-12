@@ -41,6 +41,11 @@
                 @error('name') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
+                <label class="block text-sm font-medium mb-1">Player Serial No</label>
+                <input type="number" wire:model.number="serialNo" class="sb-input" min="1" placeholder="Serial No">
+                @error('serialNo') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
                 <label class="block text-sm font-medium mb-1">Base Price</label>
                 <input type="number" wire:model.number="basePrice" class="sb-input" placeholder="Base Price">
                 @error('basePrice') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
@@ -78,7 +83,7 @@
                 @if($image)
                     <img src="{{ $image->temporaryUrl() }}" alt="Player image preview" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
                 @elseif($existingImagePath)
-                    <img src="{{ asset('storage/'.$existingImagePath) }}" alt="Player image" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
+                    <img src="{{ str_starts_with($existingImagePath, 'http') ? $existingImagePath : asset('storage/'.$existingImagePath) }}" alt="Player image" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
                 @endif
             </div>
         </div>

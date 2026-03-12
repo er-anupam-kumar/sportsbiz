@@ -16,6 +16,7 @@ class Player extends Model
         'tournament_id',
         'category_id',
         'name',
+        'serial_no',
         'base_price',
         'image_path',
         'stats',
@@ -54,5 +55,16 @@ class Player extends Model
     public function bids(): HasMany
     {
         return $this->hasMany(Bid::class);
+    }
+
+    public function getImageUrlAttribute(): string
+    {
+        if (! $this->image_path) {
+            return asset('images/team-placeholder.svg');
+        }
+
+        return str_starts_with($this->image_path, 'http')
+            ? $this->image_path
+            : asset('storage/'.$this->image_path);
     }
 }

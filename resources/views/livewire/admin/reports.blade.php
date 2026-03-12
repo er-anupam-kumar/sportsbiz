@@ -35,7 +35,7 @@
             <h2 class="font-semibold">Top Teams</h2>
             @forelse($activeTeams as $team)
                 <div class="flex items-center gap-2 py-1 border-b border-slate-200/60 last:border-b-0">
-                    <img src="{{ $team->logo_path ? asset('storage/'.$team->logo_path) : asset('images/team-placeholder.svg') }}" alt="{{ $team->name }} logo" class="h-7 w-7 rounded-md object-cover border border-blue-100">
+                    <img src="{{ $team->logo_url }}" alt="{{ $team->name }} logo" class="h-7 w-7 rounded-md object-cover border border-blue-100">
                     <span class="text-sm text-slate-800">{{ $team->name }} ({{ $team->squad_count }})</span>
                     <span class="h-4 w-4 rounded-full border border-slate-200 ml-auto" style="background-color: {{ $team->primary_color ?: '#e2e8f0' }}"></span>
                     <span class="h-4 w-4 rounded-full border border-slate-200" style="background-color: {{ $team->secondary_color ?: '#cbd5e1' }}"></span>
@@ -48,7 +48,7 @@
             <h2 class="font-semibold">Recent Sold Players</h2>
             @forelse($activeSoldPlayers as $player)
                 <div class="flex items-center gap-2 py-1 border-b border-slate-200/60 last:border-b-0">
-                    <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-7 w-7 rounded-md object-cover border border-blue-100">
+                    <img src="{{ $player->image_url }}" alt="{{ $player->name }}" class="h-7 w-7 rounded-md object-cover border border-blue-100">
                     <span class="text-sm text-slate-800">{{ $player->name }}</span>
                     <span class="text-sm text-slate-600 ml-auto">{{ number_format($player->final_price ?? 0, 2) }}</span>
                 </div>

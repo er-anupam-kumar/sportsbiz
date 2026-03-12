@@ -10,7 +10,7 @@
     @endif
     @livewireStyles
 </head>
-<body class="min-h-screen sb-shell-bg text-slate-900" x-data="{ mobileSidebar: false, desktopSidebarOpen: true, toast: '' }" x-on:toast.window="toast = $event.detail.message; setTimeout(() => toast = '', 2200)">
+<body class="min-h-screen sb-shell-bg text-slate-900 overflow-x-hidden" x-data="{ mobileSidebar: false, desktopSidebarOpen: true, toast: '' }" x-on:toast.window="toast = $event.detail.message; setTimeout(() => toast = '', 2200)">
     @php
         $teamModel = \App\Models\Team::query()->where('user_id', auth()->id())->first();
         $teamTournamentId = $teamModel?->tournament_id;
@@ -18,7 +18,7 @@
         $isActive = fn (array $names): bool => in_array($currentRoute, $names, true);
         $activeSection = $isActive(['team.auction-room', 'team.squad', 'team.bid-history']) ? 'auction' : 'overview';
     @endphp
-    <div class="min-h-screen flex">
+    <div class="min-h-screen flex w-full min-w-0 overflow-x-hidden">
         <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : (desktopSidebarOpen ? '-translate-x-full md:translate-x-0' : '-translate-x-full md:-translate-x-full')">
             <div class="h-16 px-4 flex items-center gap-2 border-b border-white/20 tracking-wide">
                 <img src="{{ asset('images/sportsbiz-logo.svg') }}" alt="SportsBiz" class="h-8 w-auto" />
@@ -49,7 +49,7 @@
             </nav>
         </aside>
 
-        <div class="flex-1 transition-all duration-200" :class="desktopSidebarOpen ? 'md:ml-64' : 'md:ml-0'">
+        <div class="flex-1 min-w-0 overflow-x-hidden transition-all duration-200" :class="desktopSidebarOpen ? 'md:ml-64' : 'md:ml-0'">
             <header class="h-16 sb-glass sb-topbar px-4 md:px-6 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <button class="md:hidden px-3 py-2 rounded-lg sb-menu-btn flex items-center gap-1" @click="mobileSidebar = !mobileSidebar"><i data-lucide="menu" class="w-4 h-4"></i>Menu</button>
@@ -72,7 +72,7 @@
                 </div>
             </header>
 
-            <main class="p-4 md:p-6">
+            <main class="p-4 md:p-6 w-full min-w-0 overflow-x-hidden">
                 {{ $slot }}
             </main>
         </div>

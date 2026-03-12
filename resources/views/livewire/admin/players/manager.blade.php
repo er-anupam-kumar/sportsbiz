@@ -117,7 +117,7 @@
                     <tr class="border-b last:border-b-0">
                         <td class="sb-table-cell">{{ $player->name }}</td>
                         <td class="sb-table-cell">
-                            <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-8 w-8 rounded-lg object-cover border border-blue-100">
+                            <img src="{{ $player->image_url }}" alt="{{ $player->name }}" class="h-8 w-8 rounded-lg object-cover border border-blue-100">
                         </td>
                         <td class="sb-table-cell">{{ $player->tournament?->name ?? '-' }}</td>
                         <td class="sb-table-cell">{{ $player->category?->name ?? '-' }}</td>

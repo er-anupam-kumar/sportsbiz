@@ -14,6 +14,22 @@
     [x-cloak] {
         display: none !important;
     }
+
+    button,
+    input[type='button'],
+    input[type='submit'],
+    input[type='reset'],
+    [role='button'] {
+        cursor: pointer;
+    }
+
+    button:disabled,
+    input[type='button']:disabled,
+    input[type='submit']:disabled,
+    input[type='reset']:disabled,
+    [role='button'][aria-disabled='true'] {
+        cursor: not-allowed;
+    }
 }
 
 @layer components {
@@ -183,6 +199,11 @@
         pointer-events: none;
     }
 
+    .sb-shiny-box-no-flash::after {
+        display: none;
+        animation: none;
+    }
+
     .sb-marquee {
         position: relative;
         overflow: hidden;
@@ -208,6 +229,31 @@
         box-shadow: 0 0 14px rgba(196, 181, 253, 0.95);
         animation: sbSparkle 2.2s ease-in-out infinite;
         pointer-events: none;
+    }
+
+    .sb-player-flash {
+        position: relative;
+        isolation: isolate;
+        animation: sbPlayerFlashStrong 1.05s ease-in-out infinite;
+    }
+
+    .sb-player-flash::after {
+        content: '';
+        position: absolute;
+        top: -35%;
+        left: -55%;
+        width: 55%;
+        height: 170%;
+        background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+        transform: rotate(16deg);
+        animation: sbPlayerSweep 2.1s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .sb-player-flash > * {
+        position: relative;
+        z-index: 1;
     }
 }
 
@@ -356,5 +402,43 @@
     }
     100% {
         left: 130%;
+    }
+}
+
+@keyframes sbPlayerSweep {
+    0% {
+        left: -55%;
+        opacity: 0;
+    }
+    25% {
+        opacity: 1;
+    }
+    100% {
+        left: 130%;
+        opacity: 0;
+    }
+}
+
+@keyframes sbPlayerPulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 1px rgba(196, 181, 253, 0.5), 0 0 14px rgba(124, 58, 237, 0.18);
+    }
+    50% {
+        box-shadow: 0 0 0 1px rgba(196, 181, 253, 0.8), 0 0 24px rgba(124, 58, 237, 0.34);
+    }
+}
+
+@keyframes sbPlayerFlashStrong {
+    0%,
+    100% {
+        border-color: rgba(168, 85, 247, 0.5);
+        background-color: rgba(255, 255, 255, 0.74);
+        box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.4), 0 0 14px rgba(217, 70, 239, 0.2);
+    }
+    50% {
+        border-color: rgba(239, 68, 68, 0.95);
+        background-color: rgba(254, 242, 242, 0.95);
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.75), 0 0 30px rgba(244, 63, 94, 0.5);
     }
 }

@@ -40,7 +40,7 @@
         }
     @endphp
     <div class="min-h-screen flex">
-        <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : (desktopSidebarOpen ? '-translate-x-full md:translate-x-0' : '-translate-x-full md:-translate-x-full')">
+        <aside class="fixed inset-y-0 left-0 z-30 w-64 sb-sidebar text-white transform transition shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : (desktopSidebarOpen ? '-translate-x-full md:translate-x-0' : '-translate-x-full md:-translate-x-full')">
             <div class="h-16 px-4 flex items-center gap-2 border-b border-white/20 tracking-wide">
                 <img src="{{ asset('images/sportsbiz-logo.svg') }}" alt="SportsBiz" class="h-8 w-auto" />
             </div>

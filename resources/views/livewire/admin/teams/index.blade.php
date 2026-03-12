@@ -27,6 +27,7 @@
                     <th class="sb-table-cell">Logo</th>
                     <th class="sb-table-cell">Colors</th>
                     <th class="sb-table-cell">Wallet</th>
+                    <th class="sb-table-cell">Squad</th>
                     <th class="sb-table-cell">Lock</th>
                     <th class="sb-table-cell">Actions</th>
                 </tr>
@@ -38,7 +39,7 @@
                         <td class="sb-table-cell">{{ $team->user?->email ?? '-' }}</td>
                         <td class="sb-table-cell">{{ $team->tournament?->name ?? '-' }}</td>
                         <td class="sb-table-cell">
-                            <img src="{{ $team->logo_path ? asset('storage/'.$team->logo_path) : asset('images/team-placeholder.svg') }}" alt="{{ $team->name }} logo" class="h-8 w-8 rounded-lg object-cover border border-slate-200" />
+                            <img src="{{ $team->logo_url }}" alt="{{ $team->name }} logo" class="h-8 w-8 rounded-lg object-cover border border-slate-200" />
                         </td>
                         <td class="sb-table-cell">
                             <div class="flex items-center gap-2">
@@ -47,9 +48,11 @@
                             </div>
                         </td>
                         <td class="sb-table-cell">{{ number_format($team->wallet_balance, 2) }}</td>
+                        <td class="sb-table-cell">{{ $team->squad_count }}</td>
                         <td class="sb-table-cell">{{ $team->is_locked ? 'LOCKED' : 'OPEN' }}</td>
                         <td class="sb-table-cell">
                             <div class="flex flex-wrap gap-2">
+                                <button wire:click="viewSquad({{ $team->id }})" class="sb-action-chip border-indigo-200 text-indigo-700">View Squad</button>
                                 <a href="{{ route('admin.teams.edit', $team->id) }}" class="sb-action-chip border-amber-200 text-amber-700">Edit</a>
                                 <button wire:click="toggleLock({{ $team->id }})" class="sb-action-chip border-amber-200 text-amber-700">Toggle Lock</button>
                                 <button wire:click="delete({{ $team->id }})" wire:confirm="Delete this team?" class="sb-action-chip border-red-200 text-red-600">Delete</button>
@@ -57,11 +60,42 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="p-4 text-center text-slate-500">No teams found.</td></tr>
+                    <tr><td colspan="9" class="p-4 text-center text-slate-500">No teams found.</td></tr>
                 @endforelse
             </tbody>
         </table>
     </div>
+
+    @if($showSquadModal)
+        <div class="fixed inset-0 z-[120] bg-black/50 flex items-center justify-center p-4" wire:click.self="closeSquadModal">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">{{ $squadTeamName }} Squad</h3>
+                        <p class="text-xs text-slate-500">Sold players currently assigned to this team.</p>
+                    </div>
+                    <button class="px-2 py-1 text-xs rounded-md border border-slate-300 text-slate-700" wire:click="closeSquadModal">Close</button>
+                </div>
+                <div class="p-4 overflow-y-auto max-h-[70vh]">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @forelse($squadPlayers as $squadPlayer)
+                            <div class="rounded-xl border border-slate-200 bg-white p-3 flex items-start gap-2">
+                                <img src="{{ $squadPlayer['image_url'] }}" alt="{{ $squadPlayer['name'] }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                                <div class="min-w-0 text-xs">
+                                    <div class="text-sm font-semibold text-slate-900 truncate">{{ $squadPlayer['name'] }}</div>
+                                    <div class="text-slate-500">Serial: {{ $squadPlayer['serial_no'] ?? '-' }}</div>
+                                    <div class="text-slate-500">Category: {{ $squadPlayer['category'] ?? 'Uncategorized' }}</div>
+                                    <div class="text-slate-600 font-semibold">Amount: {{ number_format((float) ($squadPlayer['final_price'] ?? 0), 2) }}</div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="text-sm text-slate-500">No players in squad yet.</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{ $teams->links() }}
 </div>

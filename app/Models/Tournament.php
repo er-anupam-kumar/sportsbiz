@@ -16,6 +16,7 @@ class Tournament extends Model
         'admin_id',
         'sport_id',
         'name',
+        'banner_path',
         'purse_amount',
         'max_players_per_team',
         'category_limits',
@@ -23,6 +24,7 @@ class Tournament extends Model
         'auction_timer_seconds',
         'anti_sniping',
         'auction_type',
+        'bidding_type',
         'status',
         'starts_at',
         'trade_window_ends_at',
@@ -68,5 +70,16 @@ class Tournament extends Model
     public function auction(): HasOne
     {
         return $this->hasOne(Auction::class);
+    }
+
+    public function getBannerUrlAttribute(): string
+    {
+        if (! $this->banner_path) {
+            return asset('images/team-placeholder.svg');
+        }
+
+        return str_starts_with($this->banner_path, 'http')
+            ? $this->banner_path
+            : asset('storage/'.$this->banner_path);
     }
 }

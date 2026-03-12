@@ -1,11 +1,17 @@
 <div
     wire:poll.1s="refreshAuctionState"
-    class="min-h-[calc(100vh-9rem)] space-y-3 overflow-x-hidden"
+    class="w-full min-w-0 min-h-[calc(100vh-9rem)] space-y-3 overflow-x-hidden"
     x-on:auction-activity.window="playEventCue($event.detail?.action || 'state_changed')"
+    x-on:auction-player-locked.window="lockedPlayer = $event.detail?.player || null; lockedProgress = 100; lockedCountdown = 7; if (lockedTimer) clearInterval(lockedTimer); lockedPopup = true; let remainingMs = 7000; lockedTimer = setInterval(() => { remainingMs = Math.max(remainingMs - 100, 0); lockedProgress = (remainingMs / 7000) * 100; lockedCountdown = Math.ceil(remainingMs / 1000); if (remainingMs <= 0) { clearInterval(lockedTimer); lockedTimer = null; } }, 100); setTimeout(() => { lockedPopup = false; lockedPlayer = null; lockedProgress = 0; lockedCountdown = 0; if (lockedTimer) { clearInterval(lockedTimer); lockedTimer = null; } }, 7000)"
     x-on:keydown.escape.window="soldPlayersModal = false"
     x-on:click.window.once="ensureAudio()"
     x-data="{
         soldPlayersModal: false,
+        lockedPopup: false,
+        lockedPlayer: null,
+        lockedProgress: 0,
+        lockedCountdown: 0,
+        lockedTimer: null,
         soundEnabled: true,
         hooterCooldownMs: 500,
         lastHooterAt: 0,
@@ -90,7 +96,7 @@
         }
     }"
 >
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-xl md:text-2xl font-extrabold text-amber-900">Auction Room</h1>
         <div class="flex items-center gap-2">
             <button
@@ -103,6 +109,12 @@
         </div>
     </div>
 
+    @if($tournament?->banner_path)
+        <div class="rounded-2xl overflow-hidden border border-slate-200 bg-white">
+            <img src="{{ $tournament->banner_url }}" alt="{{ $tournament->name }} banner" class="w-full h-28 md:h-36 object-cover" />
+        </div>
+    @endif
+
     @if($error)
         <div class="bg-red-50 text-red-700 p-3 rounded-xl border border-red-200">{{ $error }}</div>
     @endif
@@ -111,6 +123,7 @@
         <div class="sb-marquee">
             <div class="sb-marquee-track font-semibold">
                 <span>⚡ Current Player: {{ $auction?->currentPlayer?->name ?? 'N/A' }}</span>
+                <span>#️⃣ Serial: {{ $auction?->currentPlayer?->serial_no ?? '-' }}</span>
                 <span>🏷️ Category: {{ $auction?->currentPlayer?->category?->name ?? 'Uncategorized' }}</span>
                 <span>💰 Base: {{ number_format($auction?->currentPlayer?->base_price ?? 0, 2) }}</span>
                 <span>⬆️ Step Up: {{ number_format($tournament?->base_increment ?? 0, 2) }}</span>
@@ -133,23 +146,24 @@
     @endphp
 
     <div class="sb-shiny-box p-3 md:p-4 space-y-3 relative overflow-hidden">
-        <span class="sb-sparkle" style="top: 12%; left: 8%;"></span>
-        <span class="sb-sparkle" style="top: 20%; right: 10%; animation-delay:.6s;"></span>
         <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow">
-                <span class="h-2 w-2 rounded-full bg-white animate-pulse"></span>
+                <span class="h-2 w-2 rounded-full bg-white"></span>
                 LIVE FEED
             </div>
             <div class="text-xs md:text-sm text-slate-600 font-semibold">Auction Arena</div>
         </div>
 
         <div class="grid lg:grid-cols-3 gap-3">
-            <div class="rounded-2xl border border-slate-200/80 bg-white/70 p-3">
+            <div class="rounded-2xl border border-slate-200/80 bg-white/70 p-3 relative overflow-hidden">
+                <span class="sb-sparkle" style="top: 16%; left: 8%;"></span>
+                <span class="sb-sparkle" style="bottom: 18%; right: 10%; animation-delay:.7s;"></span>
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Current Player</div>
                 <div class="mt-2 flex items-center gap-3">
-                    <img src="{{ $auction?->currentPlayer?->image_path ? asset('storage/'.$auction->currentPlayer->image_path) : asset('images/team-placeholder.svg') }}" alt="Current player" class="h-16 w-16 md:h-20 md:w-20 rounded-xl object-cover border border-slate-200" />
+                    <img src="{{ $auction?->currentPlayer?->image_url ?? asset('images/team-placeholder.svg') }}" alt="Current player" class="h-16 w-16 md:h-20 md:w-20 rounded-xl object-cover border border-slate-200" />
                     <div class="min-w-0">
                         <div class="font-black text-xl md:text-2xl leading-tight text-slate-900 truncate">{{ $auction?->currentPlayer?->name ?? 'N/A' }}</div>
+                        <div class="text-xs text-slate-500">Serial No: {{ $auction?->currentPlayer?->serial_no ?? '-' }}</div>
                         <div class="text-xs text-slate-500 mt-1">Category: {{ $auction?->currentPlayer?->category?->name ?? 'Uncategorized' }}</div>
                         <div class="text-xs text-slate-500">Base Price: {{ number_format($auction?->currentPlayer?->base_price ?? 0, 2) }}</div>
                         <div class="text-xs text-slate-500">Age: {{ $auction?->currentPlayer?->age ?? '-' }} | Country: {{ $auction?->currentPlayer?->country ?: '-' }}</div>
@@ -164,7 +178,7 @@
 
             <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-3 text-center flex flex-col justify-center">
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Timer</div>
-                <div class="mt-1 font-black text-5xl md:text-6xl leading-none {{ $remainingSeconds > 0 && $remainingSeconds <= 5 ? 'text-red-600 animate-pulse' : 'text-emerald-800' }}">{{ $remainingSeconds }}s</div>
+                <div class="mt-1 font-black text-5xl md:text-6xl leading-none {{ $remainingSeconds > 0 && $remainingSeconds <= 5 ? 'text-red-600' : 'text-emerald-800' }}">{{ $remainingSeconds }}s</div>
                 <div class="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                     <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%"></div>
                 </div>
@@ -173,7 +187,7 @@
             <div class="rounded-2xl border border-slate-200/80 bg-white/70 p-3">
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Current Highest Bidder</div>
                 <div class="mt-2 flex items-center gap-3">
-                    <img src="{{ $auction?->currentHighestTeam?->logo_path ? asset('storage/'.$auction->currentHighestTeam->logo_path) : asset('images/team-placeholder.svg') }}" alt="Leading team logo" class="h-14 w-14 md:h-16 md:w-16 rounded-xl object-cover border border-slate-200" />
+                    <img src="{{ $auction?->currentHighestTeam?->logo_url ?? asset('images/team-placeholder.svg') }}" alt="Leading team logo" class="h-14 w-14 md:h-16 md:w-16 rounded-xl object-cover border border-slate-200" />
                     <div class="min-w-0">
                         <div class="font-black text-xl md:text-2xl leading-tight text-slate-900 truncate">{{ $auction?->currentHighestTeam?->name ?? 'Awaiting bid' }}</div>
                     </div>
@@ -187,7 +201,7 @@
     </div>
 
     <div class="sb-shiny-box p-2.5 md:p-3 flex flex-wrap items-end justify-between gap-2.5">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 flex-1 min-w-[260px]">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 flex-1 min-w-0 w-full">
             <div class="rounded-xl border border-slate-200 bg-white/70 px-3 py-2">
                 <p class="text-[11px] uppercase tracking-wide text-amber-700/80 font-semibold">Your Team Wallet{{ $team?->name ? ' • '.$team->name : '' }}</p>
                 <p class="text-2xl md:text-3xl font-black leading-none {{ $canBidNext ? 'text-emerald-700' : 'text-red-700' }}">{{ number_format($teamWallet, 2) }}</p>
@@ -205,7 +219,17 @@
                 <p class="text-xs text-slate-600">Remaining: {{ number_format($adminRemainingPurse ?? 0, 2) }}</p>
             </div>
         </div>
-        <button @click="playBidCue()" wire:click="placeBid" wire:loading.attr="disabled" class="sb-btn-primary px-5 py-3 shadow-xl">Place Bid</button>
+        @if(($tournament?->bidding_type ?? 'admin_only') === 'team_open')
+            <button
+                type="button"
+                wire:click="placeBid"
+                wire:loading.attr="disabled"
+                wire:target="placeBid"
+                class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold disabled:opacity-60"
+            >Place Bid</button>
+        @else
+            <div class="px-3 py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-xs font-semibold text-indigo-700">Bidding is managed by Admin only.</div>
+        @endif
     </div>
 
     <div class="grid md:grid-cols-2 gap-2.5">
@@ -223,12 +247,11 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 @forelse($soldPlayers->take(4) as $player)
                     <div class="rounded-xl border border-slate-200 bg-white/80 p-2.5 flex items-start gap-2">
-                        <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                        <img src="{{ $player->image_url }}" alt="{{ $player->name }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
                         <div class="min-w-0 flex-1">
                             <div class="text-sm font-semibold text-slate-900 truncate">{{ $player->name }}</div>
-                            <div class="text-xs text-slate-500">Category: {{ $player->category?->name ?? 'Uncategorized' }}</div>
                             <div class="text-xs text-slate-500">Team: {{ $player->soldTeam?->name ?? '-' }}</div>
-                            <div class="text-xs text-slate-500">Base: {{ number_format($player->base_price ?? 0, 2) }} | Sold: {{ number_format($player->final_price ?? 0, 2) }}</div>
+                            <div class="text-xs text-slate-500">Amount: {{ number_format($player->final_price ?? 0, 2) }}</div>
                         </div>
                     </div>
                 @empty
@@ -245,10 +268,13 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 @forelse($leaderboard as $teamRow)
                     <div class="rounded-xl border border-slate-200 bg-white/80 p-2.5 flex items-center gap-2">
-                        <img src="{{ $teamRow->logo_path ? asset('storage/'.$teamRow->logo_path) : asset('images/team-placeholder.svg') }}" alt="{{ $teamRow->name }} logo" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                        <img src="{{ $teamRow->logo_url }}" alt="{{ $teamRow->name }} logo" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
                         <div class="min-w-0 flex-1">
                             <div class="text-sm font-semibold text-slate-900 truncate">{{ $teamRow->name }}</div>
                             <div class="text-xs text-slate-500">Squad: {{ $teamRow->squad_count }}</div>
+                            <div class="text-xs text-slate-500">Wallet: {{ number_format((float) $teamRow->wallet_balance, 2) }}</div>
+                            <div class="text-xs text-slate-500">Used: {{ number_format(max((float) ($tournament?->purse_amount ?? 0) - (float) $teamRow->wallet_balance, 0), 2) }}</div>
+                            <div class="text-xs text-slate-500">Max Bid: {{ number_format((float) $teamRow->wallet_balance, 2) }}</div>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="h-3.5 w-3.5 rounded-full border border-slate-200" style="background-color: {{ $teamRow->primary_color ?: '#e2e8f0' }}"></span>
@@ -261,6 +287,8 @@
             </div>
         </div>
     </div>
+
+    <x-auction.locked-popup />
 
     <div
         x-show="soldPlayersModal"
@@ -281,17 +309,43 @@
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
                         @forelse($soldPlayers as $player)
-                            <div class="rounded-xl border border-slate-200 bg-white/80 p-3 flex items-start gap-3">
-                                <img src="{{ $player->image_path ? asset('storage/'.$player->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $player->name }}" class="h-14 w-14 rounded-lg object-cover border border-slate-200" />
-                                <div class="min-w-0 flex-1 text-xs space-y-0.5">
-                                    <div class="text-sm font-semibold text-slate-900 truncate">{{ $player->name }}</div>
-                                    <div class="text-slate-600">Category: {{ $player->category?->name ?? 'Uncategorized' }}</div>
-                                    <div class="text-slate-600">Team: {{ $player->soldTeam?->name ?? '-' }}</div>
-                                    <div class="text-slate-600">Base: {{ number_format($player->base_price ?? 0, 2) }} | Sold: {{ number_format($player->final_price ?? 0, 2) }}</div>
-                                    <div class="text-slate-600">Age: {{ $player->age ?? '-' }} | Country: {{ $player->country ?: '-' }}</div>
-                                    <div class="text-slate-600 truncate">Prev Team: {{ $player->previous_team ?: '-' }}</div>
+                            <div class="relative overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-rose-50 p-4 shadow-lg shadow-amber-100/60">
+                                <span class="absolute right-4 top-4 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 px-2.5 py-1 text-[10px] font-black tracking-wider text-white">SOLD</span>
+                                <span class="absolute left-4 top-4 h-2.5 w-2.5 rounded-full bg-amber-300 animate-pulse"></span>
+                                <span class="absolute bottom-5 right-6 h-2 w-2 rounded-full bg-rose-300 animate-pulse" style="animation-delay:.35s"></span>
+                                <span class="absolute bottom-8 left-1/2 h-2.5 w-2.5 rounded-full bg-indigo-200 animate-pulse" style="animation-delay:.6s"></span>
+
+                                <div class="flex items-center gap-4">
+                                    <div class="shrink-0">
+                                        <img src="{{ $player->image_url }}" alt="{{ $player->name }}" class="h-28 w-28 rounded-2xl object-cover border-4 border-white shadow-md" />
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="text-lg font-black text-slate-900 truncate pr-16">{{ $player->name }}</div>
+                                        <div class="mt-1 flex flex-wrap gap-2 text-[11px] font-semibold">
+                                            <span class="rounded-full bg-white/90 px-2 py-1 text-amber-700 border border-amber-200">Serial: {{ $player->serial_no ?? '-' }}</span>
+                                            <span class="rounded-full bg-white/90 px-2 py-1 text-rose-700 border border-rose-200">{{ $player->category?->name ?? 'Uncategorized' }}</span>
+                                        </div>
+                                        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                            <div class="rounded-xl bg-white/80 border border-slate-200 px-3 py-2">
+                                                <div class="text-slate-500 uppercase tracking-wide text-[10px]">Winning Team</div>
+                                                <div class="font-semibold text-slate-900 truncate">{{ $player->soldTeam?->name ?? '-' }}</div>
+                                            </div>
+                                            <div class="rounded-xl bg-white/80 border border-slate-200 px-3 py-2">
+                                                <div class="text-slate-500 uppercase tracking-wide text-[10px]">Sold Amount</div>
+                                                <div class="font-black text-emerald-700">{{ number_format($player->final_price ?? 0, 2) }}</div>
+                                            </div>
+                                            <div class="rounded-xl bg-white/80 border border-slate-200 px-3 py-2">
+                                                <div class="text-slate-500 uppercase tracking-wide text-[10px]">Age / Country</div>
+                                                <div class="font-semibold text-slate-900">{{ $player->age ?? '-' }} / {{ $player->country ?: '-' }}</div>
+                                            </div>
+                                            <div class="rounded-xl bg-white/80 border border-slate-200 px-3 py-2">
+                                                <div class="text-slate-500 uppercase tracking-wide text-[10px]">Previous Team</div>
+                                                <div class="font-semibold text-slate-900 truncate">{{ $player->previous_team ?: '-' }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         @empty

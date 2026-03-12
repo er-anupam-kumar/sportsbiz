@@ -3,10 +3,16 @@
     class="space-y-3 overflow-x-hidden"
     x-on:auction-activity.window="playEventCue($event.detail?.action || 'state_changed')"
     x-on:player-live-set.window="playersModal = false"
+    x-on:auction-player-locked.window="lockedPlayer = $event.detail?.player || null; lockedProgress = 100; lockedCountdown = 7; if (lockedTimer) clearInterval(lockedTimer); lockedPopup = true; let remainingMs = 7000; lockedTimer = setInterval(() => { remainingMs = Math.max(remainingMs - 100, 0); lockedProgress = (remainingMs / 7000) * 100; lockedCountdown = Math.ceil(remainingMs / 1000); if (remainingMs <= 0) { clearInterval(lockedTimer); lockedTimer = null; } }, 100); setTimeout(() => { lockedPopup = false; lockedPlayer = null; lockedProgress = 0; lockedCountdown = 0; if (lockedTimer) { clearInterval(lockedTimer); lockedTimer = null; } }, 7000)"
     x-on:keydown.escape.window="playersModal = false"
     x-data="{
         soundEnabled: true,
         playersModal: false,
+        lockedPopup: false,
+        lockedPlayer: null,
+        lockedProgress: 0,
+        lockedCountdown: 0,
+        lockedTimer: null,
         playerSearch: '',
         hooterCooldownMs: 500,
         lastHooterAt: 0,
@@ -91,7 +97,13 @@
         }
     }"
 >
-    <div class="sb-shiny-box p-3 space-y-2">
+    @if($tournament->banner_path)
+        <div class="rounded-2xl overflow-hidden border border-slate-200 bg-white">
+            <img src="{{ $tournament->banner_url }}" alt="{{ $tournament->name }} banner" class="w-full h-28 md:h-36 object-cover" />
+        </div>
+    @endif
+
+    <div class="sb-shiny-box sb-shiny-box-no-flash p-3 space-y-2">
         <div class="flex items-center gap-2 flex-nowrap overflow-x-auto pb-1">
             <select wire:model="selectedTournamentId" wire:change="loadTournament" class="h-9 w-56 lg:w-64 shrink-0 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200">
                 @foreach($tournaments as $optionTournament)
@@ -112,7 +124,7 @@
             >Choose Player</button>
 
             <span class="text-xs px-2 py-1 rounded border border-slate-200 bg-white text-slate-600">
-                {{ $startMode === 'manual' ? 'Manual: Choose Player → Bring Live' : 'Auto: system continues player flow' }}
+                {{ $startMode === 'manual' ? 'Manual: Choose Player → Bring Live' : 'Auto: system continues player flow'.($randomPickEnabled ? ' with random player picks' : ' in player order') }}
             </span>
 
             @if($selectedPlayerId)
@@ -136,28 +148,34 @@
     @php
         $timerTotal = max((int) $tournament->auction_timer_seconds, 1);
         $timerPct = max(0, min(100, (int) round(($remainingSeconds / $timerTotal) * 100)));
+        $antiSnipingWindowSeconds = (int) config('auction.anti_sniping_window_seconds', 5);
+        $antiSnipingExtensionSeconds = (int) config('auction.anti_sniping_extension_seconds', 10);
+        $manualExtendSeconds = 30;
+        $lockedModalSeconds = 7;
     @endphp
 
-    <div class="sb-shiny-box p-3 md:p-4 space-y-3 relative overflow-hidden">
-        <span class="sb-sparkle" style="top: 10%; left: 6%;"></span>
-        <span class="sb-sparkle" style="top: 24%; right: 12%; animation-delay: .6s;"></span>
-        <span class="sb-sparkle" style="bottom: 16%; left: 38%; animation-delay: 1.1s;"></span>
+    <div class="sb-shiny-box sb-shiny-box-no-flash p-3 md:p-4 space-y-3 relative overflow-hidden">
 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow">
-                <span class="h-2 w-2 rounded-full bg-white animate-pulse"></span>
+                <span class="h-2 w-2 rounded-full bg-white"></span>
                 ON AIR
             </div>
             <div class="text-xs md:text-sm text-slate-600 font-semibold">{{ $tournament->name }}</div>
         </div>
 
         <div class="grid lg:grid-cols-3 gap-3 items-stretch">
-            <div class="rounded-2xl border border-slate-200/80 bg-white/70 p-3 md:p-4">
+            <div class="rounded-2xl border border-slate-200/80 bg-white/70 p-3 md:p-4 relative overflow-hidden sb-player-flash">
+                <span class="absolute top-2 right-2 h-3 w-3 rounded-full bg-rose-500/80 animate-ping"></span>
+                <span class="absolute top-2 right-2 h-3 w-3 rounded-full bg-rose-600"></span>
+                <span class="sb-sparkle" style="top: 16%; left: 8%;"></span>
+                <span class="sb-sparkle" style="bottom: 18%; right: 10%; animation-delay: .7s;"></span>
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Current Player</div>
                 <div class="mt-2 flex items-center gap-3">
-                    <img src="{{ $auction?->currentPlayer?->image_path ? asset('storage/'.$auction->currentPlayer->image_path) : asset('images/team-placeholder.svg') }}" alt="Current player" class="h-16 w-16 md:h-20 md:w-20 rounded-xl object-cover border border-slate-200" />
+                    <img src="{{ $auction?->currentPlayer?->image_url ?? asset('images/team-placeholder.svg') }}" alt="Current player" class="h-16 w-16 md:h-20 md:w-20 rounded-xl object-cover border border-slate-200" />
                     <div class="min-w-0">
                         <div class="font-black text-xl md:text-2xl text-slate-900 leading-tight truncate">{{ $auction?->currentPlayer?->name ?? 'N/A' }}</div>
+                        <div class="text-xs text-slate-500">Serial No: {{ $auction?->currentPlayer?->serial_no ?? '-' }}</div>
                         <div class="text-xs text-slate-500 mt-1">Live on podium</div>
                     </div>
                 </div>
@@ -165,7 +183,7 @@
 
             <div class="rounded-2xl border border-slate-200/80 bg-white/80 p-3 md:p-4 text-center flex flex-col justify-center">
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Timer</div>
-                <div class="mt-1 font-black text-5xl md:text-6xl leading-none {{ $remainingSeconds > 0 && $remainingSeconds <= 5 ? 'text-red-600 animate-pulse' : 'text-emerald-800' }}">{{ $remainingSeconds }}s</div>
+                <div class="mt-1 font-black text-5xl md:text-6xl leading-none {{ $remainingSeconds > 0 && $remainingSeconds <= 5 ? 'text-red-600' : 'text-emerald-800' }}">{{ $remainingSeconds }}s</div>
                 <div class="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                     <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%"></div>
                 </div>
@@ -175,7 +193,7 @@
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Current Highest Bidder</div>
                 @if($auction?->currentHighestTeam)
                     <div class="mt-2 flex items-center gap-3">
-                        <img src="{{ $auction->currentHighestTeam->logo_path ? asset('storage/'.$auction->currentHighestTeam->logo_path) : asset('images/team-placeholder.svg') }}" alt="Leading team logo" class="h-14 w-14 md:h-16 md:w-16 rounded-xl object-cover border border-slate-200" />
+                        <img src="{{ $auction->currentHighestTeam->logo_url }}" alt="Leading team logo" class="h-14 w-14 md:h-16 md:w-16 rounded-xl object-cover border border-slate-200" />
                         <div class="min-w-0">
                             <div class="font-black text-xl md:text-2xl text-slate-900 leading-tight truncate">{{ $auction->currentHighestTeam->name }}</div>
                             <div class="flex items-center gap-2 mt-1">
@@ -194,27 +212,94 @@
             </div>
         </div>
     </div>
-    <div class="sb-shiny-box p-2.5">
+
+    <div class="sb-shiny-box sb-shiny-box-no-flash p-2.5">
         <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
             <button @click="playStartCue()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm sb-btn-primary !text-white border border-violet-300/60 font-semibold disabled:opacity-60">Start</button>
             <button @click="playPauseCue()" wire:click="pauseAuction" wire:loading.attr="disabled" wire:target="pauseAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg font-semibold disabled:opacity-60">Pause</button>
-            <button @click="playClick()" wire:click="extendTimer(10)" wire:loading.attr="disabled" wire:target="extendTimer" class="h-9 w-full px-2 text-sm bg-slate-800 text-white rounded-lg font-semibold disabled:opacity-60">Extend +10s</button>
+            <button @click="playClick()" wire:click="extendTimer(30)" wire:loading.attr="disabled" wire:target="extendTimer" class="h-9 w-full px-2 text-sm bg-slate-800 text-white rounded-lg font-semibold disabled:opacity-60">Extend +30s</button>
             <button @click="playSoldCue()" wire:click="markSold" wire:loading.attr="disabled" wire:target="markSold" class="h-9 w-full px-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark SOLD</button>
             <button @click="playUnsoldCue()" wire:click="markUnsold" wire:loading.attr="disabled" wire:target="markUnsold" class="h-9 w-full px-2 text-sm bg-amber-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark UNSOLD</button>
             <button @click="playShuffleCue()" wire:click="shufflePlayers" wire:loading.attr="disabled" wire:target="shufflePlayers" class="h-9 w-full px-2 text-sm bg-violet-600 text-white rounded-lg font-semibold disabled:opacity-60">Shuffle Players</button>
         </div>
+        @if($startMode === 'auto')
+            <div class="mt-2 flex items-center justify-between gap-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/80 px-3 py-2.5">
+                <div>
+                    <div class="text-sm font-semibold text-slate-900">Random Pick Player</div>
+                    <div class="text-xs text-slate-600">When enabled, auto mode selects the next live player randomly.</div>
+                </div>
+                <label class="relative inline-flex items-center gap-3 cursor-pointer select-none">
+                    <input type="checkbox" wire:model.live="randomPickEnabled" class="peer sr-only">
+                    <span class="text-sm font-semibold text-slate-700 min-w-[2.5rem] text-right" x-text="$wire.randomPickEnabled ? 'ON' : 'OFF'"></span>
+                    <div class="relative h-10 w-20 rounded-full bg-slate-300 shadow-inner transition peer-checked:bg-fuchsia-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-fuchsia-300/50 after:absolute after:left-1 after:top-1 after:h-8 after:w-8 after:rounded-full after:bg-white after:shadow-md after:transition-all peer-checked:after:translate-x-10"></div>
+                </label>
+            </div>
+        @endif
     </div>
-    <div class="sb-shiny-box p-3 md:p-4 space-y-2 relative">
-        <span class="sb-sparkle" style="top: 18%; right: 14%; animation-delay: .5s;"></span>
-        <span class="sb-sparkle" style="bottom: 22%; left: 16%; animation-delay: 1.2s;"></span>
+
+    <div class="sb-shiny-box sb-shiny-box-no-flash p-3 md:p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-slate-900">Timer Rules</h2>
+            <span class="text-[11px] px-2 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold">Live Auction Guide</span>
+        </div>
+        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5 text-xs text-slate-600">
+            <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2.5">
+                <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Start</div>
+                <div class="mt-1">When a player goes live, the timer is reset to <span class="font-semibold text-slate-900">{{ (int) $tournament->auction_timer_seconds }}s</span>.</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2.5">
+                <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Anti-Sniping</div>
+                <div class="mt-1">If a valid bid lands in the final <span class="font-semibold text-slate-900">{{ $antiSnipingWindowSeconds }}s</span>, the backend extends the timer by <span class="font-semibold text-slate-900">{{ $antiSnipingExtensionSeconds }}s</span>.</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2.5">
+                <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Pause / Extend</div>
+                <div class="mt-1">Pause freezes the remaining time. Extend adds <span class="font-semibold text-slate-900">{{ $manualExtendSeconds }}s</span> directly to the current timer.</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white/80 px-3 py-2.5">
+                <div class="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">After LOCKED</div>
+                <div class="mt-1">The LOCKED modal stays up for <span class="font-semibold text-slate-900">{{ $lockedModalSeconds }}s</span>. In auto mode, only then does the next player get a fresh timer.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sb-shiny-box sb-shiny-box-no-flash p-3 md:p-4 space-y-2">
+        @if(($tournament->bidding_type ?? 'admin_only') === 'admin_only')
+            <div class="text-sm font-semibold">Admin Bidding Panel (Team Names)</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                @forelse($bidTeams as $teamRow)
+                    <div class="rounded-xl border border-slate-200 bg-white/80 p-2.5 flex items-center gap-2">
+                        <img src="{{ $teamRow->logo_url }}" alt="{{ $teamRow->name }} logo" class="h-9 w-9 rounded-lg object-cover border border-slate-200" />
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm font-semibold text-slate-900 truncate">{{ $teamRow->name }}</div>
+                            <div class="text-xs text-slate-500">Wallet: {{ number_format((float) $teamRow->wallet_balance, 2) }}</div>
+                        </div>
+                        <button @click="playActivityCue()" wire:click="placeBidForTeam({{ $teamRow->id }})" wire:loading.attr="disabled" wire:target="placeBidForTeam({{ $teamRow->id }})" class="h-8 px-2 text-xs rounded-md {{ $teamRow->is_locked ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600' }} text-white font-semibold" {{ $teamRow->is_locked ? 'disabled' : '' }}>
+                            {{ $teamRow->is_locked ? 'Locked' : 'Place Bid' }}
+                        </button>
+                        <button wire:click="viewSquad({{ $teamRow->id }})" class="h-8 px-2 text-xs rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 font-semibold">View Squad</button>
+                    </div>
+                @empty
+                    <div class="text-sm text-slate-500">No teams found for bidding.</div>
+                @endforelse
+            </div>
+        @else
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Team Open bidding is enabled for this tournament. Admin Place Bid controls are hidden.
+            </div>
+        @endif
+    </div>
+    <div class="sb-shiny-box sb-shiny-box-no-flash p-3 md:p-4 space-y-2">
         <div class="text-sm font-semibold">Leaderboard</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
             @forelse($leaderboard as $team)
                 <div class="rounded-xl border border-slate-200 bg-white/80 p-2.5 flex items-center gap-2">
-                    <img src="{{ $team->logo_path ? asset('storage/'.$team->logo_path) : asset('images/team-placeholder.svg') }}" alt="{{ $team->name }} logo" class="h-9 w-9 rounded-lg object-cover border border-slate-200" />
+                    <img src="{{ $team->logo_url }}" alt="{{ $team->name }} logo" class="h-9 w-9 rounded-lg object-cover border border-slate-200" />
                     <div class="min-w-0 flex-1">
                         <div class="text-sm font-semibold text-slate-900 truncate">{{ $team->name }}</div>
                         <div class="text-xs text-slate-500">Squad: {{ $team->squad_count }}</div>
+                        <div class="text-xs text-slate-500">Wallet: {{ number_format((float) $team->wallet_balance, 2) }}</div>
+                        <div class="text-xs text-slate-500">Used: {{ number_format(max((float) $tournament->purse_amount - (float) $team->wallet_balance, 0), 2) }}</div>
+                        <div class="text-xs text-slate-500">Max Bid: {{ number_format((float) $team->wallet_balance, 2) }}</div>
                     </div>
                     <div class="flex items-center gap-1">
                         <span class="h-3.5 w-3.5 rounded-full border border-slate-200" style="background-color: {{ $team->primary_color ?: '#e2e8f0' }}"></span>
@@ -230,7 +315,7 @@
     <div
         x-show="playersModal"
         x-transition.opacity
-        class="fixed inset-0 z-50"
+        class="fixed inset-0 z-[120]"
         x-cloak
     >
         <div class="absolute inset-0 bg-black/40" @click="playersModal = false"></div>
@@ -263,9 +348,10 @@
                             >
                                 <div class="flex items-start justify-between gap-2">
                                     <div class="min-w-0 flex items-center gap-2">
-                                        <img src="{{ $playerCard->image_path ? asset('storage/'.$playerCard->image_path) : asset('images/team-placeholder.svg') }}" alt="{{ $playerCard->name }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                                        <img src="{{ $playerCard->image_url }}" alt="{{ $playerCard->name }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
                                         <div class="min-w-0">
                                             <div class="font-semibold text-slate-900 truncate">{{ $playerCard->name }}</div>
+                                            <div class="text-xs text-slate-500 truncate">Serial: {{ $playerCard->serial_no ?? '-' }}</div>
                                             <div class="text-xs text-slate-500 truncate">{{ $playerCard->category?->name ?? 'No category' }}</div>
                                         </div>
                                     </div>
@@ -306,4 +392,37 @@
             </div>
         </div>
     </div>
+
+    <x-auction.locked-popup />
+
+    @if($showSquadModal)
+        <div class="fixed inset-0 z-[130] bg-black/50 flex items-center justify-center p-4" wire:click.self="closeSquadModal">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
+                <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">{{ $squadTeamName }} Squad</h3>
+                        <p class="text-xs text-slate-500">Current sold players in this team.</p>
+                    </div>
+                    <button class="px-2 py-1 text-xs rounded-md border border-slate-300 text-slate-700" wire:click="closeSquadModal">Close</button>
+                </div>
+                <div class="p-4 overflow-y-auto max-h-[70vh]">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @forelse($squadPlayers as $squadPlayer)
+                            <div class="rounded-xl border border-slate-200 bg-white p-3 flex items-start gap-2">
+                                <img src="{{ $squadPlayer['image_url'] }}" alt="{{ $squadPlayer['name'] }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                                <div class="min-w-0 text-xs">
+                                    <div class="text-sm font-semibold text-slate-900 truncate">{{ $squadPlayer['name'] }}</div>
+                                    <div class="text-slate-500">Serial: {{ $squadPlayer['serial_no'] ?? '-' }}</div>
+                                    <div class="text-slate-500">Category: {{ $squadPlayer['category'] ?? 'Uncategorized' }}</div>
+                                    <div class="text-slate-600 font-semibold">Amount: {{ number_format((float) ($squadPlayer['final_price'] ?? 0), 2) }}</div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="text-sm text-slate-500">No players in squad yet.</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

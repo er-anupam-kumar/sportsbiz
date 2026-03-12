@@ -7,10 +7,13 @@ use App\Models\Tournament;
 use App\Support\AdminQuota;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.admin')]
 class Create extends Component
 {
+    use WithFileUploads;
+
     public int $sportId = 0;
     public string $name = '';
     public float $purseAmount = 0;
@@ -19,6 +22,8 @@ class Create extends Component
     public int $auctionTimerSeconds = 30;
     public bool $antiSniping = true;
     public string $auctionType = 'live';
+    public string $biddingType = 'admin_only';
+    public $banner;
 
     public function save(): void
     {
@@ -32,7 +37,11 @@ class Create extends Component
             'baseIncrement' => ['required', 'numeric', 'min:1'],
             'auctionTimerSeconds' => ['required', 'integer', 'min:5'],
             'auctionType' => ['required', 'in:live,silent'],
+            'biddingType' => ['required', 'in:admin_only,team_open'],
+            'banner' => ['nullable', 'image', 'max:4096'],
         ]);
+
+        $bannerPath = $this->banner ? $this->banner->store('tournament-banners', 'public') : null;
 
         $limitMessage = AdminQuota::tournamentLimitMessage($adminId);
         if ($limitMessage) {
@@ -46,12 +55,14 @@ class Create extends Component
             'admin_id' => $adminId,
             'sport_id' => $this->sportId,
             'name' => $this->name,
+            'banner_path' => $bannerPath,
             'purse_amount' => $this->purseAmount,
             'max_players_per_team' => $this->maxPlayersPerTeam,
             'base_increment' => $this->baseIncrement,
             'auction_timer_seconds' => $this->auctionTimerSeconds,
             'anti_sniping' => $this->antiSniping,
             'auction_type' => $this->auctionType,
+            'bidding_type' => $this->biddingType,
             'status' => 'draft',
         ]);
 
@@ -70,6 +81,8 @@ class Create extends Component
             'auctionTimerSeconds',
             'antiSniping',
             'auctionType',
+            'biddingType',
+            'banner',
         ]);
 
         $this->maxPlayersPerTeam = 15;
@@ -77,6 +90,7 @@ class Create extends Component
         $this->auctionTimerSeconds = 30;
         $this->antiSniping = true;
         $this->auctionType = 'live';
+        $this->biddingType = 'admin_only';
     }
 
     public function mount(): void

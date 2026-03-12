@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Teams;
 
 use App\Models\Team;
+use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Support\AdminQuota;
@@ -32,6 +33,9 @@ class Manager extends Component
     public ?string $existingLogoPath = null;
     public string $primaryColor = '';
     public string $secondaryColor = '';
+    public bool $showSquadModal = false;
+    public string $squadTeamName = '';
+    public array $squadPlayers = [];
 
     public function updatedTournamentId(): void
     {
@@ -205,6 +209,39 @@ class Manager extends Component
             $this->resetForm();
         }
         $this->dispatch('toast', message: 'Team deleted.');
+    }
+
+    public function viewSquad(int $teamId): void
+    {
+        $team = Team::query()
+            ->where('admin_id', auth()->id())
+            ->whereKey($teamId)
+            ->firstOrFail();
+
+        $players = Player::query()
+            ->where('sold_team_id', $team->id)
+            ->where('status', 'sold')
+            ->with('category:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price'])
+            ->map(fn (Player $player) => [
+                'id' => $player->id,
+                'name' => $player->name,
+                'serial_no' => $player->serial_no,
+                'image_url' => $player->image_url,
+                'category' => $player->category?->name,
+                'final_price' => $player->final_price,
+            ])
+            ->all();
+
+        $this->squadTeamName = $team->name;
+        $this->squadPlayers = $players;
+        $this->showSquadModal = true;
+    }
+
+    public function closeSquadModal(): void
+    {
+        $this->showSquadModal = false;
     }
 
     public function resetForm(): void

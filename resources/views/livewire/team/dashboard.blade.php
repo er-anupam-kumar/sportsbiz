@@ -3,7 +3,7 @@
     @if($team)
         <div class="sb-card p-4 border-t-4 border-emerald-700 flex items-center justify-between gap-3">
             <div class="flex items-center gap-3">
-                <img src="{{ $team->logo_path ? asset('storage/'.$team->logo_path) : asset('images/team-placeholder.svg') }}" alt="{{ $team->name }} logo" class="h-11 w-11 rounded-lg object-cover border border-slate-200">
+                <img src="{{ $team->logo_url }}" alt="{{ $team->name }} logo" class="h-11 w-11 rounded-lg object-cover border border-slate-200">
                 <div>
                     <div class="font-semibold text-slate-800">{{ $team->name }}</div>
                     <div class="text-sm text-slate-600">Wallet: {{ number_format($team->wallet_balance, 2) }} | Squad: {{ $team->squad_count }}</div>

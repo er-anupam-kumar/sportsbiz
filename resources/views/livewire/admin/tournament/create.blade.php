@@ -30,6 +30,14 @@
                 @error('name') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <div>
+                <label class="block text-sm font-medium mb-1">Tournament Banner</label>
+                <input type="file" wire:model="banner" accept="image/*" class="sb-input">
+                @error('banner') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                @if($banner)
+                    <img src="{{ $banner->temporaryUrl() }}" alt="Tournament banner preview" class="mt-2 h-16 w-full rounded-lg object-cover border border-slate-200" />
+                @endif
+            </div>
+            <div>
                 <label class="block text-sm font-medium mb-1">Purse Amount</label>
                 <input type="number" wire:model="purseAmount" class="sb-input" placeholder="Purse Amount">
                 @error('purseAmount') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
@@ -56,6 +64,14 @@
                     <option value="silent">Silent</option>
                 </select>
                 @error('auctionType') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Bidding Type</label>
+                <select wire:model="biddingType" class="sb-input">
+                    <option value="admin_only">Admin Only</option>
+                    <option value="team_open">Team Open</option>
+                </select>
+                @error('biddingType') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
             <label class="flex items-center gap-2 text-sm font-medium pt-7"><input type="checkbox" wire:model="antiSniping"> Anti-sniping</label>
         </div>

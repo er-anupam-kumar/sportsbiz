@@ -25,9 +25,20 @@ class ControlPanel extends Component
     public Tournament $tournament;
     public int $selectedTournamentId = 0;
     public ?int $selectedPlayerId = null;
+    public ?int $selectedBidTeamId = null;
     public string $startMode = 'manual';
+    public bool $randomPickEnabled = true;
     public string $snapshotKey = '';
     public string $soundTriggerMode = 'polling';
+    public bool $showSquadModal = false;
+    public string $squadTeamName = '';
+    public array $squadPlayers = [];
+    public ?int $lockedAdvanceAt = null;
+
+    public function isAdminOnlyBidding(): bool
+    {
+        return ($this->tournament->bidding_type ?? 'admin_only') === 'admin_only';
+    }
 
     private function safeBroadcast(object $event): void
     {
@@ -140,11 +151,19 @@ class ControlPanel extends Component
             ->value('current_player_id');
 
         $this->selectedPlayerId = $currentPlayerId ? (int) $currentPlayerId : null;
+        $this->selectedBidTeamId = Team::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->orderBy('name')
+            ->value('id');
         $this->snapshotKey = $this->buildSnapshotKey();
     }
 
     public function refreshAuctionState(): void
     {
+        if ($this->lockedAdvanceAt !== null && now()->timestamp >= $this->lockedAdvanceAt) {
+            $this->finalizeLockedAdvance();
+        }
+
         $currentSnapshot = $this->buildSnapshotKey();
 
         if ($this->soundTriggerMode === 'polling' && $this->snapshotKey !== '' && $this->snapshotKey !== $currentSnapshot) {
@@ -163,20 +182,20 @@ class ControlPanel extends Component
             return 'state_changed';
         }
 
-        if (($old[4] ?? null) !== ($new[4] ?? null)) {
-            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
-        }
-
-        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
-            return 'bid';
-        }
-
         if (($old[1] ?? null) !== ($new[1] ?? null)) {
             if (($new[1] ?? null) === '' || ($new[1] ?? null) === null) {
                 return 'player_sold';
             }
 
             return 'player_shuffled';
+        }
+
+        if (($old[4] ?? null) !== ($new[4] ?? null)) {
+            return ((int) ($new[4] ?? 0)) === 1 ? 'auction_paused' : 'auction_started';
+        }
+
+        if (((float) ($new[3] ?? 0)) > ((float) ($old[3] ?? 0))) {
+            return 'bid';
         }
 
         if (($old[5] ?? null) !== ($new[5] ?? null)) {
@@ -253,7 +272,23 @@ class ControlPanel extends Component
             return;
         }
 
-        $this->dispatch('toast', message: 'Auto mode enabled. Auction can continue automatically.');
+        $modeLabel = $this->randomPickEnabled ? 'random player pick is ON' : 'random player pick is OFF';
+        $this->dispatch('toast', message: "Auto mode enabled. {$modeLabel}.");
+    }
+
+    public function updatedRandomPickEnabled(bool $value): void
+    {
+        $this->randomPickEnabled = $value;
+
+        if ($this->startMode !== 'auto') {
+            return;
+        }
+
+        $message = $value
+            ? 'Random player pick enabled for auto mode.'
+            : 'Random player pick disabled. Auto mode will use player order.';
+
+        $this->dispatch('toast', message: $message);
     }
 
     public function startAuction(): void
@@ -262,6 +297,26 @@ class ControlPanel extends Component
             ['tournament_id' => $this->tournament->id],
             ['current_bid' => 0]
         );
+
+        // If auction is paused with a live player, treat Start as Resume and preserve remaining time.
+        if ($auction->is_paused && $auction->current_player_id) {
+            $pausedRemaining = 0;
+            if ($auction->ends_at && $auction->updated_at) {
+                $pausedRemaining = max((int) $auction->updated_at->diffInSeconds($auction->ends_at, false), 0);
+            }
+
+            $auction->update([
+                'is_paused' => false,
+                'ends_at' => $pausedRemaining > 0
+                    ? now()->addSeconds($pausedRemaining)
+                    : now()->addSeconds($this->tournament->auction_timer_seconds),
+            ]);
+
+            $this->selectedPlayerId = (int) $auction->current_player_id;
+            $this->safeBroadcast(new AuctionStarted($this->tournament->id, auth()->id()));
+            $this->dispatch('toast', message: 'Auction resumed.');
+            return;
+        }
 
         $currentPlayerId = null;
 
@@ -298,6 +353,76 @@ class ControlPanel extends Component
 
         $this->safeBroadcast(new AuctionStarted($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction started.');
+    }
+
+    public function placeBidForTeam(int $teamId, AuctionEngine $auctionEngine): void
+    {
+        if (! $this->isAdminOnlyBidding()) {
+            $this->dispatch('toast', message: 'Admin bidding is disabled for this tournament.');
+            return;
+        }
+
+        $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
+
+        if (! $auction || ! $auction->current_player_id) {
+            $this->dispatch('toast', message: 'No active player to place bid on.');
+            return;
+        }
+
+        $team = Team::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->whereKey($teamId)
+            ->first();
+
+        if (! $team) {
+            $this->dispatch('toast', message: 'Team is not available for this tournament.');
+            return;
+        }
+
+        try {
+            $auctionEngine->placeBid((int) $team->id, (int) $auction->current_player_id);
+            $this->dispatch('toast', message: 'Bid placed for '.$team->name.'.');
+        } catch (AuctionException $exception) {
+            $this->dispatch('toast', message: $exception->getMessage());
+        }
+    }
+
+    public function viewSquad(int $teamId): void
+    {
+        $team = Team::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->whereKey($teamId)
+            ->first();
+
+        if (! $team) {
+            $this->dispatch('toast', message: 'Team not found.');
+            return;
+        }
+
+        $this->squadTeamName = $team->name;
+        $this->squadPlayers = Player::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->where('sold_team_id', $team->id)
+            ->where('status', 'sold')
+            ->with('category:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price'])
+            ->map(fn (Player $player) => [
+                'id' => $player->id,
+                'name' => $player->name,
+                'serial_no' => $player->serial_no,
+                'image_url' => $player->image_url,
+                'category' => $player->category?->name,
+                'final_price' => $player->final_price,
+            ])
+            ->all();
+
+        $this->showSquadModal = true;
+    }
+
+    public function closeSquadModal(): void
+    {
+        $this->showSquadModal = false;
     }
 
     public function bringPlayerLive(int $playerId): void
@@ -393,7 +518,7 @@ class ControlPanel extends Component
         $this->dispatch('toast', message: 'Auction resumed.');
     }
 
-    public function extendTimer(int $seconds = 10): void
+    public function extendTimer(int $seconds = 30): void
     {
         $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
         if (! $auction || ! $auction->ends_at) {
@@ -414,10 +539,44 @@ class ControlPanel extends Component
             return;
         }
 
+        $lockedPlayer = null;
+        if ($auction->current_player_id) {
+            $player = Player::query()
+                ->with('category:id,name')
+                ->find($auction->current_player_id, ['id', 'name', 'serial_no', 'image_path', 'category_id']);
+
+            $winnerTeam = null;
+            if ($auction->current_highest_team_id) {
+                $winnerTeam = Team::query()->whereKey($auction->current_highest_team_id)->first(['id', 'name', 'logo_path']);
+            }
+
+            if ($player) {
+                $lockedPlayer = [
+                    'id' => (int) $player->id,
+                    'name' => $player->name,
+                    'serial_no' => $player->serial_no,
+                    'image_url' => $player->image_url,
+                    'category' => $player->category?->name,
+                    'amount' => (float) ($auction->current_bid ?? 0),
+                    'team' => $winnerTeam?->name,
+                    'team_logo_url' => $winnerTeam?->logo_url,
+                ];
+            }
+        }
+
         try {
             $auctionEngine->markPlayerSold($auction->id);
             if ($this->startMode === 'auto') {
-                $this->advanceToNextPlayer($auction);
+                $auction->update([
+                    'current_player_id' => null,
+                    'current_highest_team_id' => null,
+                    'current_bid' => 0,
+                    'last_bid_at' => null,
+                    'ends_at' => null,
+                    'is_paused' => true,
+                ]);
+                $this->selectedPlayerId = null;
+                $this->lockedAdvanceAt = now()->addSeconds(7)->timestamp;
             } else {
                 $auction->update([
                     'current_player_id' => null,
@@ -429,10 +588,31 @@ class ControlPanel extends Component
                 ]);
                 $this->selectedPlayerId = null;
             }
+            $this->dispatch('auction-player-locked', player: $lockedPlayer);
             $this->dispatch('toast', message: 'Player marked sold.');
         } catch (AuctionException $exception) {
             $this->dispatch('toast', message: $exception->getMessage());
         }
+    }
+
+    public function finalizeLockedAdvance(): void
+    {
+        if ($this->lockedAdvanceAt === null) {
+            return;
+        }
+
+        $this->lockedAdvanceAt = null;
+
+        if ($this->startMode !== 'auto') {
+            return;
+        }
+
+        $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
+        if (! $auction) {
+            return;
+        }
+
+        $this->advanceToNextPlayer($auction);
     }
 
     public function markUnsold(): void
@@ -534,20 +714,26 @@ class ControlPanel extends Component
             return (int) $auction->current_player_id;
         }
 
-        return Player::query()
+        $query = Player::query()
             ->where('tournament_id', $this->tournament->id)
-            ->where('status', 'available')
-            ->orderBy('id')
-            ->value('id');
+            ->where('status', 'available');
+
+        if ($this->shouldUseRandomAutoPick()) {
+            return $query->inRandomOrder()->value('id');
+        }
+
+        return $query->orderBy('id')->value('id');
     }
 
     private function advanceToNextPlayer(Auction $auction): void
     {
-        $nextPlayerId = Player::query()
+        $baseQuery = Player::query()
             ->where('tournament_id', $this->tournament->id)
-            ->where('status', 'available')
-            ->orderBy('id')
-            ->value('id');
+            ->where('status', 'available');
+
+        $nextPlayerId = $this->shouldUseRandomAutoPick()
+            ? $baseQuery->inRandomOrder()->value('id')
+            : $baseQuery->orderBy('id')->value('id');
 
         if (! $nextPlayerId) {
             $recycledUnsold = Player::query()
@@ -559,7 +745,11 @@ class ControlPanel extends Component
                 $nextPlayerId = Player::query()
                     ->where('tournament_id', $this->tournament->id)
                     ->where('status', 'available')
-                    ->orderBy('id')
+                    ->when(
+                        $this->shouldUseRandomAutoPick(),
+                        fn ($query) => $query->inRandomOrder(),
+                        fn ($query) => $query->orderBy('id')
+                    )
                     ->value('id');
             }
         }
@@ -589,10 +779,15 @@ class ControlPanel extends Component
         $this->selectedPlayerId = null;
     }
 
+    private function shouldUseRandomAutoPick(): bool
+    {
+        return $this->startMode === 'auto' && $this->randomPickEnabled;
+    }
+
     public function render()
     {
         $auction = Auction::query()
-            ->with('currentPlayer:id,name,image_path,category_id', 'currentPlayer.category:id,name', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
+            ->with('currentPlayer:id,name,serial_no,image_path,category_id', 'currentPlayer.category:id,name', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
             ->where('tournament_id', $this->tournament->id)
             ->first();
 
@@ -617,7 +812,7 @@ class ControlPanel extends Component
                 ->with('category:id,name', 'soldTeam:id,name')
                 ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'unsold' THEN 2 WHEN 'sold' THEN 3 ELSE 4 END")
                 ->orderBy('name')
-                ->get(['id', 'name', 'image_path', 'category_id', 'base_price', 'status', 'sold_team_id', 'final_price']),
+                ->get(['id', 'name', 'serial_no', 'image_path', 'category_id', 'base_price', 'status', 'sold_team_id', 'final_price']),
             'availableCount' => Player::query()
                 ->where('tournament_id', $this->tournament->id)
                 ->where('status', 'available')
@@ -630,7 +825,11 @@ class ControlPanel extends Component
                 ->where('tournament_id', $this->tournament->id)
                 ->orderByDesc('squad_count')
                 ->limit(5)
-                ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'squad_count']),
+                ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'wallet_balance', 'squad_count']),
+            'bidTeams' => Team::query()
+                ->where('tournament_id', $this->tournament->id)
+                ->orderBy('name')
+                ->get(['id', 'name', 'logo_path', 'wallet_balance', 'is_locked']),
         ]);
     }
 }
