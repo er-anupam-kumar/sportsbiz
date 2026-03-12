@@ -23,6 +23,7 @@ class Manager extends Component
 
     public int $tournamentId = 0;
     public ?int $editingId = null;
+    public bool $formMode = false;
     public int $formTournamentId = 0;
     public string $name = '';
     public string $email = '';
@@ -44,7 +45,7 @@ class Manager extends Component
 
     public function isFormPage(): bool
     {
-        return in_array((string) request()->route()?->getName(), ['admin.teams.create', 'admin.teams.edit'], true);
+        return $this->formMode;
     }
 
     public function save(): void
@@ -266,6 +267,7 @@ class Manager extends Component
     public function mount(?int $team = null): void
     {
         $this->resetForm();
+        $this->formMode = in_array((string) request()->route()?->getName(), ['admin.teams.create', 'admin.teams.edit'], true);
 
         if ($team) {
             $this->edit($team);
