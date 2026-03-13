@@ -20,6 +20,7 @@ class AuctionRoom extends Component
     public ?string $error = null;
     public string $snapshotKey = '';
     public string $soundTriggerMode = 'polling';
+    public string $lastRoundCompleteToken = '';
 
     public function mount(int $tournamentId): void
     {
@@ -30,6 +31,8 @@ class AuctionRoom extends Component
             ->where('tournament_id', $this->tournamentId)
             ->value('id');
         $this->snapshotKey = $this->buildSnapshotKey();
+        $roundPayload = Cache::get($this->roundCompleteCacheKey(), []);
+        $this->lastRoundCompleteToken = (string) ($roundPayload['token'] ?? '');
     }
 
     public function refreshAuctionState(): void
@@ -46,6 +49,30 @@ class AuctionRoom extends Component
         }
 
         $this->snapshotKey = $currentSnapshot;
+        $this->dispatchRoundCompleteIfNeeded();
+    }
+
+    private function dispatchRoundCompleteIfNeeded(): void
+    {
+        $payload = Cache::get($this->roundCompleteCacheKey(), []);
+        $token = (string) ($payload['token'] ?? '');
+
+        if ($token === '' || $token === $this->lastRoundCompleteToken) {
+            return;
+        }
+
+        $this->lastRoundCompleteToken = $token;
+
+        $this->dispatch(
+            'auction-round-complete',
+            soldCount: (int) ($payload['soldCount'] ?? 0),
+            unsoldCount: (int) ($payload['unsoldCount'] ?? 0)
+        );
+    }
+
+    private function roundCompleteCacheKey(): string
+    {
+        return "auction_round_complete:tournament:{$this->tournamentId}";
     }
 
     private function buildSnapshotKey(): string

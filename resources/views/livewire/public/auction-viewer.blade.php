@@ -3,6 +3,7 @@
     class="{{ $darkMode ? 'bg-slate-950 text-slate-100' : 'sb-shell-bg text-slate-900' }} {{ $projectorMode ? 'min-h-screen' : 'min-h-[calc(100vh-2rem)]' }} {{ $compactMode ? 'p-3 lg:p-3.5 space-y-2.5' : 'p-4 lg:p-5 space-y-3' }} rounded-2xl overflow-x-hidden"
     x-on:auction-activity.window="playEventCue($event.detail?.action || 'state_changed')"
     x-on:auction-player-locked.window="lockedPlayer = $event.detail?.player || null; lockedProgress = 100; lockedCountdown = 7; if (lockedTimer) clearInterval(lockedTimer); lockedPopup = true; let remainingMs = 7000; lockedTimer = setInterval(() => { remainingMs = Math.max(remainingMs - 100, 0); lockedProgress = (remainingMs / 7000) * 100; lockedCountdown = Math.ceil(remainingMs / 1000); if (remainingMs <= 0) { clearInterval(lockedTimer); lockedTimer = null; } }, 100); setTimeout(() => { lockedPopup = false; lockedPlayer = null; lockedProgress = 0; lockedCountdown = 0; if (lockedTimer) { clearInterval(lockedTimer); lockedTimer = null; } }, 7000)"
+    x-on:auction-round-complete.window="roundSoldCount = Number($event.detail?.soldCount || 0); roundUnsoldCount = Number($event.detail?.unsoldCount || 0); roundProgress = 100; if (roundInterval) clearInterval(roundInterval); roundCompletePopup = true; let remainingMs = 7000; roundInterval = setInterval(() => { remainingMs = Math.max(remainingMs - 100, 0); roundProgress = (remainingMs / 7000) * 100; if (remainingMs <= 0) { clearInterval(roundInterval); roundInterval = null; roundCompletePopup = false; } }, 100)"
     x-on:keydown.escape.window="soldPlayersModal = false"
     x-data="{
         lastBid: {{ (float) ($auction?->current_bid ?? 0) }},
@@ -13,6 +14,11 @@
         lockedProgress: 0,
         lockedCountdown: 0,
         lockedTimer: null,
+        roundCompletePopup: false,
+        roundSoldCount: 0,
+        roundUnsoldCount: 0,
+        roundProgress: 0,
+        roundInterval: null,
         leaderboardModal: false,
         soundEnabled: true,
         hooterCooldownMs: 500,
@@ -162,7 +168,7 @@
                     {{ $remainingSeconds }}s
                 </div>
                 <div class="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-                    <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%"></div>
+                    <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%; transition: width 900ms linear"></div>
                 </div>
             </div>
 
@@ -234,6 +240,11 @@
                             <div class="text-xs {{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Wallet: {{ number_format((float) $team->wallet_balance, 2) }}</div>
                             <div class="text-xs {{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Used: {{ number_format(max((float) ($tournament?->purse_amount ?? 0) - (float) $team->wallet_balance, 0), 2) }}</div>
                             <div class="text-xs {{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Max Bid: {{ number_format((float) $team->wallet_balance, 2) }}</div>
+                            <button
+                                type="button"
+                                wire:click="viewSquad({{ $team->id }})"
+                                class="mt-1 h-7 px-2 text-[11px] rounded-md border {{ $darkMode ? 'border-indigo-500/40 text-indigo-200 bg-indigo-500/10' : 'border-indigo-200 text-indigo-700 bg-indigo-50' }} font-semibold"
+                            >View Squad</button>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="h-3.5 w-3.5 rounded-full border border-slate-200" style="background-color: {{ $team->primary_color ?: '#e2e8f0' }}"></span>
@@ -251,6 +262,38 @@
     </div>
 
     <x-auction.locked-popup />
+    <x-auction.round-complete-popup />
+
+    @if($showSquadModal)
+        <div class="fixed inset-0 z-[131] bg-black/55 flex items-center justify-center p-4" wire:click.self="closeSquadModal">
+            <div class="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border {{ $darkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900' }} shadow-2xl">
+                <div class="px-4 py-3 border-b {{ $darkMode ? 'border-slate-700' : 'border-slate-200' }} flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold">{{ $squadTeamName }} Squad</h3>
+                        <p class="text-xs {{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Sold players currently assigned to this team.</p>
+                    </div>
+                    <button type="button" wire:click="closeSquadModal" class="px-2 py-1 text-xs rounded-md border {{ $darkMode ? 'border-slate-600 text-slate-200' : 'border-slate-300 text-slate-700' }}">Close</button>
+                </div>
+                <div class="p-4 overflow-y-auto max-h-[70vh]">
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        @forelse($squadPlayers as $squadPlayer)
+                            <div class="rounded-xl border {{ $darkMode ? 'border-slate-700 bg-slate-950/50' : 'border-slate-200 bg-white' }} p-3 flex items-start gap-2">
+                                <img src="{{ $squadPlayer['image_url'] }}" alt="{{ $squadPlayer['name'] }}" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
+                                <div class="min-w-0 text-xs">
+                                    <div class="text-sm font-semibold truncate {{ $darkMode ? 'text-slate-100' : 'text-slate-900' }}">{{ $squadPlayer['name'] }}</div>
+                                    <div class="{{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Serial: {{ $squadPlayer['serial_no'] ?? '-' }}</div>
+                                    <div class="{{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Category: {{ $squadPlayer['category'] ?? 'Uncategorized' }}</div>
+                                    <div class="font-semibold {{ $darkMode ? 'text-emerald-300' : 'text-slate-700' }}">Amount: {{ number_format((float) ($squadPlayer['final_price'] ?? 0), 2) }}</div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="text-sm {{ $darkMode ? 'text-slate-400' : 'text-slate-500' }}">No players in squad yet.</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <div
         x-show="soldPlayersModal"

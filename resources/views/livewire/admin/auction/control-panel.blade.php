@@ -4,6 +4,7 @@
     x-on:auction-activity.window="playEventCue($event.detail?.action || 'state_changed')"
     x-on:player-live-set.window="playersModal = false"
     x-on:auction-player-locked.window="lockedPlayer = $event.detail?.player || null; lockedProgress = 100; lockedCountdown = 7; if (lockedTimer) clearInterval(lockedTimer); lockedPopup = true; let remainingMs = 7000; lockedTimer = setInterval(() => { remainingMs = Math.max(remainingMs - 100, 0); lockedProgress = (remainingMs / 7000) * 100; lockedCountdown = Math.ceil(remainingMs / 1000); if (remainingMs <= 0) { clearInterval(lockedTimer); lockedTimer = null; } }, 100); setTimeout(() => { lockedPopup = false; lockedPlayer = null; lockedProgress = 0; lockedCountdown = 0; if (lockedTimer) { clearInterval(lockedTimer); lockedTimer = null; } }, 7000)"
+    x-on:auction-round-complete.window="roundSoldCount = Number($event.detail?.soldCount || 0); roundUnsoldCount = Number($event.detail?.unsoldCount || 0); roundProgress = 100; if (roundInterval) clearInterval(roundInterval); roundCompletePopup = true; let remainingMs = 7000; roundInterval = setInterval(() => { remainingMs = Math.max(remainingMs - 100, 0); roundProgress = (remainingMs / 7000) * 100; if (remainingMs <= 0) { clearInterval(roundInterval); roundInterval = null; roundCompletePopup = false; } }, 100)"
     x-on:keydown.escape.window="playersModal = false"
     x-data="{
         soundEnabled: true,
@@ -13,6 +14,11 @@
         lockedProgress: 0,
         lockedCountdown: 0,
         lockedTimer: null,
+        roundCompletePopup: false,
+        roundSoldCount: 0,
+        roundUnsoldCount: 0,
+        roundProgress: 0,
+        roundInterval: null,
         playerSearch: '',
         hooterCooldownMs: 500,
         lastHooterAt: 0,
@@ -185,7 +191,7 @@
                 <div class="text-xs uppercase tracking-wide text-slate-500 font-semibold">Timer</div>
                 <div class="mt-1 font-black text-5xl md:text-6xl leading-none {{ $remainingSeconds > 0 && $remainingSeconds <= 5 ? 'text-red-600' : 'text-emerald-800' }}">{{ $remainingSeconds }}s</div>
                 <div class="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
-                    <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%"></div>
+                    <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%; transition: width 900ms linear"></div>
                 </div>
             </div>
 
@@ -394,6 +400,8 @@
     </div>
 
     <x-auction.locked-popup />
+
+    <x-auction.round-complete-popup />
 
     @if($showSquadModal)
         <div class="fixed inset-0 z-[130] bg-black/50 flex items-center justify-center p-4" wire:click.self="closeSquadModal">

@@ -17,6 +17,10 @@ class AuctionViewer extends Component
     public bool $compactMode = false;
     public string $snapshotKey = '';
     public string $realtimeMode = 'polling';
+    public string $lastRoundCompleteToken = '';
+    public bool $showSquadModal = false;
+    public string $squadTeamName = '';
+    public array $squadPlayers = [];
 
     public function mount(int $tournamentId): void
     {
@@ -26,6 +30,8 @@ class AuctionViewer extends Component
         $this->compactMode = request()->boolean('compact');
         $this->realtimeMode = (string) Cache::get('platform_realtime_mode', 'polling');
         $this->snapshotKey = $this->buildSnapshotKey();
+        $roundPayload = Cache::get($this->roundCompleteCacheKey(), []);
+        $this->lastRoundCompleteToken = (string) ($roundPayload['token'] ?? '');
     }
 
     public function getListeners(): array
@@ -89,6 +95,30 @@ class AuctionViewer extends Component
         }
 
         $this->snapshotKey = $currentSnapshot;
+        $this->dispatchRoundCompleteIfNeeded();
+    }
+
+    private function dispatchRoundCompleteIfNeeded(): void
+    {
+        $payload = Cache::get($this->roundCompleteCacheKey(), []);
+        $token = (string) ($payload['token'] ?? '');
+
+        if ($token === '' || $token === $this->lastRoundCompleteToken) {
+            return;
+        }
+
+        $this->lastRoundCompleteToken = $token;
+
+        $this->dispatch(
+            'auction-round-complete',
+            soldCount: (int) ($payload['soldCount'] ?? 0),
+            unsoldCount: (int) ($payload['unsoldCount'] ?? 0)
+        );
+    }
+
+    private function roundCompleteCacheKey(): string
+    {
+        return "auction_round_complete:tournament:{$this->tournamentId}";
     }
 
     private function buildSnapshotKey(): string
@@ -181,6 +211,44 @@ class AuctionViewer extends Component
         ];
     }
 
+    public function viewSquad(int $teamId): void
+    {
+        $team = Team::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->whereKey($teamId)
+            ->first();
+
+        if (! $team) {
+            $this->dispatch('toast', message: 'Team not found.');
+            return;
+        }
+
+        $this->squadTeamName = $team->name;
+        $this->squadPlayers = Player::query()
+            ->where('tournament_id', $this->tournamentId)
+            ->where('sold_team_id', $team->id)
+            ->where('status', 'sold')
+            ->with('category:id,name')
+            ->orderBy('name')
+            ->get(['id', 'name', 'serial_no', 'image_path', 'category_id', 'final_price'])
+            ->map(fn (Player $player) => [
+                'id' => $player->id,
+                'name' => $player->name,
+                'serial_no' => $player->serial_no,
+                'image_url' => $player->image_url,
+                'category' => $player->category?->name,
+                'final_price' => $player->final_price,
+            ])
+            ->all();
+
+        $this->showSquadModal = true;
+    }
+
+    public function closeSquadModal(): void
+    {
+        $this->showSquadModal = false;
+    }
+
     public function render()
     {
         $auction = Auction::with('currentPlayer:id,tournament_id,name,serial_no,image_path,status', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
@@ -220,12 +288,8 @@ class AuctionViewer extends Component
             }
         }
 
-        $timerTotal = 30;
-        if ($auction?->ends_at && $auction?->started_at) {
-            $timerTotal = max((int) $auction->started_at->diffInSeconds($auction->ends_at), 1);
-        }
-
-        $timerPct = max(0, min(100, (int) round(($remainingSeconds / max($timerTotal, 1)) * 100)));
+        $timerTotal = max((int) ($tournament?->auction_timer_seconds ?? 30), 1);
+        $timerPct = max(0, min(100, (int) round(($remainingSeconds / $timerTotal) * 100)));
 
         return view('livewire.public.auction-viewer', [
             'auction' => $auction,

@@ -666,6 +666,8 @@ class ControlPanel extends Component
             ->value('id');
 
         if (! $nextPlayerId) {
+            $this->dispatchRoundComplete();
+
             $recycled = Player::query()
                 ->where('tournament_id', $this->tournament->id)
                 ->where('status', 'unsold')
@@ -736,6 +738,8 @@ class ControlPanel extends Component
             : $baseQuery->orderBy('id')->value('id');
 
         if (! $nextPlayerId) {
+            $this->dispatchRoundComplete();
+
             $recycledUnsold = Player::query()
                 ->where('tournament_id', $this->tournament->id)
                 ->where('status', 'unsold')
@@ -777,6 +781,38 @@ class ControlPanel extends Component
         ]);
 
         $this->selectedPlayerId = null;
+    }
+
+    private function dispatchRoundComplete(): void
+    {
+        $soldCount = Player::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->where('status', 'sold')
+            ->count();
+
+        $unsoldCount = Player::query()
+            ->where('tournament_id', $this->tournament->id)
+            ->where('status', 'unsold')
+            ->count();
+
+        if (($soldCount + $unsoldCount) === 0) {
+            return;
+        }
+
+        $token = (string) round(microtime(true) * 1000);
+        Cache::put($this->roundCompleteCacheKey(), [
+            'token' => $token,
+            'soldCount' => $soldCount,
+            'unsoldCount' => $unsoldCount,
+            'at' => now()->toIso8601String(),
+        ], now()->addHours(6));
+
+        $this->dispatch('auction-round-complete', soldCount: $soldCount, unsoldCount: $unsoldCount);
+    }
+
+    private function roundCompleteCacheKey(): string
+    {
+        return "auction_round_complete:tournament:{$this->tournament->id}";
     }
 
     private function shouldUseRandomAutoPick(): bool
