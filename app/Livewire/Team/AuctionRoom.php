@@ -334,7 +334,6 @@ class AuctionRoom extends Component
             'leaderboard' => Team::query()
                 ->where('tournament_id', $this->tournamentId)
                 ->orderByDesc('squad_count')
-                ->limit(6)
                 ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'wallet_balance', 'squad_count']),
         ]);
     }

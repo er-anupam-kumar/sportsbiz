@@ -220,18 +220,11 @@
         </div>
 
         <div class="rounded-2xl {{ $compactMode ? 'p-2.5' : 'p-3' }} {{ $darkMode ? 'bg-slate-900 border border-slate-700' : 'sb-card' }}">
-            <div class="mb-2 flex items-center justify-between gap-2">
+            <div class="mb-2 flex items-center gap-2">
                 <h2 class="font-semibold {{ $projectorMode ? ($compactMode ? 'text-xl' : 'text-2xl') : '' }} flex items-center gap-2"><i data-lucide="podium" class="w-5 h-5 text-red-600"></i>Leaderboard</h2>
-                @if($leaderboard->count() > 6)
-                    <button
-                        type="button"
-                        @click="leaderboardModal = true"
-                        class="h-8 px-3 text-xs rounded-lg border border-slate-300 {{ $darkMode ? 'bg-slate-800 text-slate-100 border-slate-600' : 'bg-white text-slate-700' }} font-semibold"
-                    >View All ({{ $leaderboard->count() }})</button>
-                @endif
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 {{ $compactMode ? 'gap-2' : 'gap-2.5' }}">
-                @forelse($leaderboard->take(6) as $team)
+                @forelse($leaderboard as $team)
                     <div class="rounded-xl border {{ $darkMode ? 'border-slate-700 bg-slate-950/50' : 'border-slate-200 bg-white/80' }} p-2.5 flex items-center gap-2">
                         <img src="{{ $team->logo_url }}" alt="{{ $team->name }} logo" class="h-10 w-10 rounded-lg object-cover border border-slate-200" />
                         <div class="min-w-0 flex-1">
@@ -255,9 +248,6 @@
                     <div class="text-sm {{ $darkMode ? 'text-slate-400' : 'text-slate-500' }}">No teams on leaderboard yet.</div>
                 @endforelse
             </div>
-            @if($leaderboard->count() > 6)
-                <div class="mt-2 text-xs {{ $darkMode ? 'text-slate-300' : 'text-slate-500' }}">Showing 6 of {{ $leaderboard->count() }} teams.</div>
-            @endif
         </div>
     </div>
 

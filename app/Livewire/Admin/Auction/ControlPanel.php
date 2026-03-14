@@ -860,7 +860,6 @@ class ControlPanel extends Component
             'leaderboard' => Team::query()
                 ->where('tournament_id', $this->tournament->id)
                 ->orderByDesc('squad_count')
-                ->limit(5)
                 ->get(['id', 'name', 'logo_path', 'primary_color', 'secondary_color', 'wallet_balance', 'squad_count']),
             'bidTeams' => Team::query()
                 ->where('tournament_id', $this->tournament->id)
