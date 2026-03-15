@@ -105,10 +105,66 @@ Jasprit Bumrah,93,1800,Bowler,available,30,India,MI</pre>
                                 <button
                                     wire:click="delete({{ $player->id }})"
                                     wire:confirm="Delete this player?"
+                                    wire:loading.attr="disabled"
+                                    wire:target="delete({{ $player->id }})"
                                     class="sb-action-chip {{ $player->status === 'sold' ? 'border-slate-200 text-slate-400' : 'border-red-200 text-red-600' }}"
                                     {{ $player->status === 'sold' ? 'disabled title=Sold\ players\ cannot\ be\ deleted' : '' }}
-                                >{{ $player->status === 'sold' ? 'Locked' : 'Delete' }}</button>
+                                >
+                                    <span wire:loading wire:target="delete({{ $player->id }})" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                                    <span wire:loading.remove wire:target="delete({{ $player->id }})">{{ $player->status === 'sold' ? 'Locked' : 'Delete' }}</span>
+                                </button>
+                                @if($player->status === 'sold')
+                                    <button
+                                        type="button"
+                                        wire:click="openEditAuctionModal({{ $player->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="openEditAuctionModal({{ $player->id }})"
+                                        class="sb-action-chip border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                                    >
+                                        <span wire:loading wire:target="openEditAuctionModal({{ $player->id }})" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                                        <span wire:loading.remove wire:target="openEditAuctionModal({{ $player->id }})">Edit Auction</span>
+                                    </button>
+                                @endif
                             </div>
+                        @if($editAuctionPlayerId)
+                            <div class="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4" wire:ignore.self>
+                                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                                    <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                                        <div>
+                                            <h3 class="text-base font-bold text-slate-900">Edit Auction Details</h3>
+                                            <p class="text-xs text-slate-500">Change team and amount for this player.</p>
+                                        </div>
+                                        <button class="px-2 py-1 text-xs rounded-md border border-slate-300 text-slate-700" wire:click="$set('editAuctionPlayerId', null)">Close</button>
+                                    </div>
+                                    <form wire:submit.prevent="saveEditAuctionDetails" class="p-4 space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Team</label>
+                                            <select wire:model="editAuctionTeamId" class="sb-input">
+                                                <option value="">Select Team</option>
+                                                @foreach($editAuctionTeams as $team)
+                                                    <option value="{{ is_array($team) ? $team['id'] : $team->id }}">{{ is_array($team) ? $team['name'] : $team->name }} (Wallet: {{ number_format(is_array($team) ? $team['wallet_balance'] : $team->wallet_balance, 2) }})</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium mb-1">Amount</label>
+                                            <input type="number" wire:model="editAuctionAmount" :step="editAuctionStepUp" min="{{ $editAuctionStepUp }}" class="sb-input" />
+                                            <div class="text-xs text-slate-500 mt-1">Step up: {{ number_format($editAuctionStepUp, 2) }}</div>
+                                        </div>
+                                        @if($editAuctionError)
+                                            <div class="text-xs text-red-600">{{ $editAuctionError }}</div>
+                                        @endif
+                                        <div class="flex gap-2 mt-4">
+                                            <button type="submit" class="px-4 py-2 sb-btn-primary" wire:loading.attr="disabled" wire:target="saveEditAuctionDetails">
+                                                <span wire:loading wire:target="saveEditAuctionDetails" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                                                <span wire:loading.remove wire:target="saveEditAuctionDetails">Save</span>
+                                            </button>
+                                            <button type="button" class="px-4 py-2 border border-slate-300 rounded-lg" wire:click="$set('editAuctionPlayerId', null)">Cancel</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        @endif
                         </td>
                     </tr>
                 @empty

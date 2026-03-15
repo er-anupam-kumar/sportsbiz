@@ -26,7 +26,10 @@
             </div>
         </div>
         <div class="flex flex-wrap gap-2">
-            <button wire:click="save" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary">{{ $editingId ? 'Update' : 'Create' }}</button>
+            <button wire:click="save" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary" wire:target="save">
+                <span wire:loading wire:target="save" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                <span wire:loading.remove wire:target="save">{{ $editingId ? 'Update' : 'Create' }}</span>
+            </button>
             @if($editingId)
                 <button wire:click="resetForm" class="px-4 py-2 border border-slate-300 rounded-lg">Cancel</button>
             @endif
@@ -61,8 +64,14 @@
                         <td class="sb-table-cell">{{ $category->max_per_team }}</td>
                         <td class="sb-table-cell">
                             <div class="flex flex-wrap gap-2">
-                                <button wire:click="edit({{ $category->id }})" class="sb-action-chip border-amber-200 text-amber-700">Edit</button>
-                                <button wire:click="delete({{ $category->id }})" wire:confirm="Delete this category?" class="sb-action-chip border-red-200 text-red-600">Delete</button>
+                                <button wire:click="edit({{ $category->id }})" wire:loading.attr="disabled" wire:target="edit({{ $category->id }})" class="sb-action-chip border-amber-200 text-amber-700">
+                                    <span wire:loading wire:target="edit({{ $category->id }})" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-amber-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                                    <span wire:loading.remove wire:target="edit({{ $category->id }})">Edit</span>
+                                </button>
+                                <button wire:click="delete({{ $category->id }})" wire:confirm="Delete this category?" wire:loading.attr="disabled" wire:target="delete({{ $category->id }})" class="sb-action-chip border-red-200 text-red-600">
+                                    <span wire:loading wire:target="delete({{ $category->id }})" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-red-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                                    <span wire:loading.remove wire:target="delete({{ $category->id }})">Delete</span>
+                                </button>
                             </div>
                         </td>
                     </tr>

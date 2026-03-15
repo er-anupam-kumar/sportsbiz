@@ -25,7 +25,13 @@
             <input wire:model="remember" type="checkbox" /> Remember me
         </label>
 
-        <button type="submit" wire:loading.attr="disabled" class="w-full sb-btn-primary px-4 py-2.5">Login</button>
+        <button type="submit" wire:loading.attr="disabled" class="w-full sb-btn-primary px-4 py-2.5" wire:target="login">
+            <span class="inline-flex items-center">
+                <svg wire:loading wire:target="login" class="animate-spin h-4 w-4 mr-1 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                <span wire:loading wire:target="login">Loading...</span>
+                <span wire:loading.remove wire:target="login">Login</span>
+            </span>
+        </button>
     </form>
 
     <div class="text-sm flex justify-between">

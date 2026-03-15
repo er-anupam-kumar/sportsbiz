@@ -24,6 +24,8 @@
         hooterCooldownMs: 500,
         lastHooterAt: 0,
         audioCtx: null,
+        timer: {{ $remainingSeconds }},
+        timerInterval: null,
         ensureAudio(){
             if (!this.audioCtx) {
                 this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -102,9 +104,19 @@
                     this.playActivityCue();
             }
         },
-        onRefresh(current){ if(current > this.lastBid){ this.highlight = true; setTimeout(() => this.highlight = false, 1200); } this.lastBid = current; }
+        onRefresh(current){ if(current > this.lastBid){ this.highlight = true; setTimeout(() => this.highlight = false, 1200); } this.lastBid = current; },
+        startTimer() {
+            if (this.timerInterval) clearInterval(this.timerInterval);
+            this.timerInterval = setInterval(() => {
+                if (this.timer > 0) this.timer--;
+            }, 1000);
+        },
+        syncTimer(newVal) {
+            if (this.timer !== newVal) this.timer = newVal;
+        }
     }"
-    x-init="onRefresh({{ (float) ($auction?->current_bid ?? 0) }})"
+    x-init="onRefresh({{ (float) ($auction?->current_bid ?? 0) }}); startTimer();"
+    x-effect="syncTimer({{ $remainingSeconds }});"
 >
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h1 class="{{ $projectorMode ? ($compactMode ? 'text-2xl lg:text-3xl' : 'text-3xl lg:text-4xl') : ($compactMode ? 'text-lg md:text-xl' : 'text-xl md:text-2xl') }} font-extrabold {{ $darkMode ? 'text-amber-200' : 'text-amber-900' }} flex items-center gap-2"><i data-lucide="radio" class="w-6 h-6 text-red-600"></i>Live Auction Viewer</h1>
@@ -165,7 +177,7 @@
             <div class="rounded-2xl border {{ $darkMode ? 'border-slate-700 bg-slate-950/70' : 'border-slate-200 bg-white/80' }} {{ $compactMode ? 'p-2.5' : 'p-3' }} text-center flex flex-col justify-center">
                 <div class="text-xs uppercase tracking-wide {{ $darkMode ? 'text-slate-300' : 'text-slate-500' }} font-semibold">Timer</div>
                 <div class="{{ $projectorMode ? ($compactMode ? 'text-5xl lg:text-6xl' : 'text-6xl lg:text-7xl') : ($compactMode ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl') }} font-black leading-none mt-1 {{ $remainingSeconds > 0 && $remainingSeconds <= 5 ? 'text-red-500' : ($darkMode ? 'text-amber-200' : 'text-emerald-800') }}">
-                    {{ $remainingSeconds }}s
+                    <span x-text="timer + 's'"></span>
                 </div>
                 <div class="mt-3 h-2 w-full rounded-full bg-slate-200 overflow-hidden">
                     <div class="h-full rounded-full bg-gradient-to-r from-emerald-600 via-amber-500 to-red-600" style="width: {{ $timerPct }}%; transition: width 900ms linear"></div>
@@ -236,8 +248,16 @@
                             <button
                                 type="button"
                                 wire:click="viewSquad({{ $team->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="viewSquad({{ $team->id }})"
                                 class="mt-1 h-7 px-2 text-[11px] rounded-md border {{ $darkMode ? 'border-indigo-500/40 text-indigo-200 bg-indigo-500/10' : 'border-indigo-200 text-indigo-700 bg-indigo-50' }} font-semibold"
-                            >View Squad</button>
+                            >
+                                <span class="inline-flex items-center">
+                                    <svg wire:loading wire:target="viewSquad({{ $team->id }})" class="animate-spin h-4 w-4 mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                                    <span wire:loading wire:target="viewSquad({{ $team->id }})">Loading...</span>
+                                    <span wire:loading.remove wire:target="viewSquad({{ $team->id }})">View Squad</span>
+                                </span>
+                            </button>
                         </div>
                         <div class="flex items-center gap-1">
                             <span class="h-3.5 w-3.5 rounded-full border border-slate-200" style="background-color: {{ $team->primary_color ?: '#e2e8f0' }}"></span>

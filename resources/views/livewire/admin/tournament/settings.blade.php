@@ -79,5 +79,11 @@
         </div>
         <label class="flex items-center gap-2 text-sm font-medium pt-7"><input type="checkbox" wire:model="antiSniping"> Anti-sniping</label>
     </div>
-    <button wire:click="save" class="px-4 py-2 sb-btn-primary">Save</button>
+    <button wire:click="save" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary" wire:target="save">
+        <span class="inline-flex items-center">
+            <svg wire:loading wire:target="save" class="animate-spin h-4 w-4 mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+            <span wire:loading wire:target="save">Loading...</span>
+            <span wire:loading.remove wire:target="save">Save</span>
+        </span>
+    </button>
 </div>

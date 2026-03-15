@@ -221,12 +221,48 @@
 
     <div class="sb-shiny-box sb-shiny-box-no-flash p-2.5">
         <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
-            <button @click="playStartCue()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm sb-btn-primary !text-white border border-violet-300/60 font-semibold disabled:opacity-60">Start</button>
-            <button @click="playPauseCue()" wire:click="pauseAuction" wire:loading.attr="disabled" wire:target="pauseAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg font-semibold disabled:opacity-60">Pause</button>
-            <button @click="playClick()" wire:click="extendTimer(30)" wire:loading.attr="disabled" wire:target="extendTimer" class="h-9 w-full px-2 text-sm bg-slate-800 text-white rounded-lg font-semibold disabled:opacity-60">Extend +30s</button>
-            <button @click="playSoldCue()" wire:click="markSold" wire:loading.attr="disabled" wire:target="markSold" class="h-9 w-full px-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark SOLD</button>
-            <button @click="playUnsoldCue()" wire:click="markUnsold" wire:loading.attr="disabled" wire:target="markUnsold" class="h-9 w-full px-2 text-sm bg-amber-600 text-white rounded-lg font-semibold disabled:opacity-60">Mark UNSOLD</button>
-            <button @click="playShuffleCue()" wire:click="shufflePlayers" wire:loading.attr="disabled" wire:target="shufflePlayers" class="h-9 w-full px-2 text-sm bg-violet-600 text-white rounded-lg font-semibold disabled:opacity-60">Shuffle Players</button>
+            <button @click="playStartCue()" wire:click="startAuction" wire:loading.attr="disabled" wire:target="startAuction" class="h-9 w-full px-2 text-sm sb-btn-primary !text-white border border-violet-300/60 font-semibold disabled:opacity-60">
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="startAuction" class="animate-spin h-4 w-4 mr-1 text-violet-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="startAuction">Loading...</span>
+                    <span wire:loading.remove wire:target="startAuction">Start</span>
+                </span>
+            </button>
+            <button @click="playPauseCue()" wire:click="pauseAuction" wire:loading.attr="disabled" wire:target="pauseAuction" class="h-9 w-full px-2 text-sm bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg font-semibold disabled:opacity-60">
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="pauseAuction" class="animate-spin h-4 w-4 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="pauseAuction">Loading...</span>
+                    <span wire:loading.remove wire:target="pauseAuction">Pause</span>
+                </span>
+            </button>
+            <button @click="playClick()" wire:click="extendTimer(30)" wire:loading.attr="disabled" wire:target="extendTimer" class="h-9 w-full px-2 text-sm bg-slate-800 text-white rounded-lg font-semibold disabled:opacity-60">
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="extendTimer" class="animate-spin h-4 w-4 mr-1 text-slate-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="extendTimer">Loading...</span>
+                    <span wire:loading.remove wire:target="extendTimer">Extend +30s</span>
+                </span>
+            </button>
+            <button @click="playSoldCue()" wire:click="markSold" wire:loading.attr="disabled" wire:target="markSold" class="h-9 w-full px-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold disabled:opacity-60">
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="markSold" class="animate-spin h-4 w-4 mr-1 text-indigo-200" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="markSold">Loading...</span>
+                    <span wire:loading.remove wire:target="markSold">Mark SOLD</span>
+                </span>
+            </button>
+            <button @click="playUnsoldCue()" wire:click="markUnsold" wire:loading.attr="disabled" wire:target="markUnsold" class="h-9 w-full px-2 text-sm bg-amber-600 text-white rounded-lg font-semibold disabled:opacity-60">
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="markUnsold" class="animate-spin h-4 w-4 mr-1 text-amber-200" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="markUnsold">Loading...</span>
+                    <span wire:loading.remove wire:target="markUnsold">Mark UNSOLD</span>
+                </span>
+            </button>
+            <button @click="playShuffleCue()" wire:click="shufflePlayers" wire:loading.attr="disabled" wire:target="shufflePlayers" class="h-9 w-full px-2 text-sm bg-violet-600 text-white rounded-lg font-semibold disabled:opacity-60">
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="shufflePlayers" class="animate-spin h-4 w-4 mr-1 text-violet-200" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="shufflePlayers">Loading...</span>
+                    <span wire:loading.remove wire:target="shufflePlayers">Shuffle Players</span>
+                </span>
+            </button>
         </div>
         @if($startMode === 'auto')
             <div class="mt-2 flex items-center justify-between gap-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/80 px-3 py-2.5">
@@ -280,9 +316,19 @@
                             <div class="text-xs text-slate-500">Wallet: {{ number_format((float) $teamRow->wallet_balance, 2) }}</div>
                         </div>
                         <button @click="playActivityCue()" wire:click="placeBidForTeam({{ $teamRow->id }})" wire:loading.attr="disabled" wire:target="placeBidForTeam({{ $teamRow->id }})" class="h-8 px-2 text-xs rounded-md {{ $teamRow->is_locked ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600' }} text-white font-semibold" {{ $teamRow->is_locked ? 'disabled' : '' }}>
-                            {{ $teamRow->is_locked ? 'Locked' : 'Place Bid' }}
+                            <span class="inline-flex items-center">
+                                <svg wire:loading wire:target="placeBidForTeam({{ $teamRow->id }})" class="animate-spin h-4 w-4 mr-1 text-indigo-200" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                                <span wire:loading wire:target="placeBidForTeam({{ $teamRow->id }})">Loading...</span>
+                                <span wire:loading.remove wire:target="placeBidForTeam({{ $teamRow->id }})">{{ $teamRow->is_locked ? 'Locked' : 'Place Bid' }}</span>
+                            </span>
                         </button>
-                        <button wire:click="viewSquad({{ $teamRow->id }})" class="h-8 px-2 text-xs rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 font-semibold">View Squad</button>
+                        <button wire:click="viewSquad({{ $teamRow->id }})" wire:loading.attr="disabled" wire:target="viewSquad({{ $teamRow->id }})" class="h-8 px-2 text-xs rounded-md border border-indigo-200 text-indigo-700 bg-indigo-50 font-semibold">
+                            <span class="inline-flex items-center">
+                                <svg wire:loading wire:target="viewSquad({{ $teamRow->id }})" class="animate-spin h-4 w-4 mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                                <span wire:loading wire:target="viewSquad({{ $teamRow->id }})">Loading...</span>
+                                <span wire:loading.remove wire:target="viewSquad({{ $teamRow->id }})">View Squad</span>
+                            </span>
+                        </button>
                     </div>
                 @empty
                     <div class="text-sm text-slate-500">No teams found for bidding.</div>
@@ -386,10 +432,55 @@
                                         <span wire:loading.remove wire:target="bringPlayerLive({{ $playerCard->id }})">Bring Live Now</span>
                                         <span wire:loading wire:target="bringPlayerLive({{ $playerCard->id }})">Bringing...</span>
                                     </button>
+                                @elseif($playerCard->status === 'sold')
+                                    <button
+                                        type="button"
+                                        wire:click="openEditAuctionModal({{ $playerCard->id }})"
+                                        class="w-full h-8 px-2 text-xs rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 disabled:opacity-60"
+                                    >Edit Auction</button>
                                 @else
                                     <div class="w-full px-2 py-1.5 text-center text-[11px] rounded-md bg-slate-100 text-slate-500 font-semibold uppercase">{{ $playerCard->status }}</div>
                                 @endif
                             </div>
+                            @if($editAuctionPlayerId)
+                                <div class="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4" wire:ignore.self>
+                                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                                        <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                                            <div>
+                                                <h3 class="text-base font-bold text-slate-900">Edit Auction Details</h3>
+                                                <p class="text-xs text-slate-500">Change team and amount for this player.</p>
+                                            </div>
+                                            <button class="px-2 py-1 text-xs rounded-md border border-slate-300 text-slate-700" wire:click="$set('editAuctionPlayerId', null)">Close</button>
+                                        </div>
+                                        <form wire:submit.prevent="saveEditAuctionDetails" class="p-4 space-y-3">
+                                            <div>
+                                                <label class="block text-sm font-medium mb-1">Team</label>
+                                                <select wire:model="editAuctionTeamId" class="sb-input">
+                                                    <option value="">Select Team</option>
+                                                    @foreach($editAuctionTeams as $team)
+                                                        <option value="{{ $team['id'] }}">{{ $team['name'] }} (Wallet: {{ number_format($team['wallet_balance'], 2) }})</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium mb-1">Amount</label>
+                                                <input type="number" wire:model="editAuctionAmount" :step="editAuctionStepUp" min="{{ $editAuctionStepUp }}" class="sb-input" />
+                                                <div class="text-xs text-slate-500 mt-1">Step up: {{ number_format($editAuctionStepUp, 2) }}</div>
+                                            </div>
+                                            @if($editAuctionError)
+                                                <div class="text-xs text-red-600">{{ $editAuctionError }}</div>
+                                            @endif
+                                            <div class="flex gap-2 mt-4">
+                                                <button type="submit" class="px-4 py-2 sb-btn-primary" wire:loading.attr="disabled" wire:target="saveEditAuctionDetails">
+                                                    <span wire:loading wire:target="saveEditAuctionDetails" class="inline-flex items-center"><svg class="animate-spin h-4 w-4 mr-1 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>Loading...</span>
+                                                    <span wire:loading.remove wire:target="saveEditAuctionDetails">Save</span>
+                                                </button>
+                                                <button type="button" class="px-4 py-2 border border-slate-300 rounded-lg" wire:click="$set('editAuctionPlayerId', null)">Cancel</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            @endif
                         @empty
                             <div class="sm:col-span-2 lg:col-span-3 xl:col-span-4 text-center text-slate-500 py-8">No players found.</div>
                         @endforelse

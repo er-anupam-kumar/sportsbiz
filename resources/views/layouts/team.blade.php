@@ -64,8 +64,7 @@
                     <button class="px-3 py-2 rounded-lg sb-user-btn font-medium flex items-center gap-2" @click="open = !open"><i data-lucide="user-circle-2" class="w-4 h-4"></i>{{ auth()->user()?->name ?? 'Team User' }}</button>
                     <div x-show="open" @click.outside="open = false" class="absolute right-0 mt-2 w-56 sb-glass border rounded-xl shadow-xl z-20" x-cloak>
                         <div class="px-3 py-2 text-xs text-slate-500 border-b">{{ auth()->user()?->email }}</div>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
+                        <form method="GET" action="{{ route('logout') }}">
                             <button type="submit" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-xl flex items-center gap-2"><i data-lucide="log-out" class="w-4 h-4"></i>Logout</button>
                         </form>
                     </div>

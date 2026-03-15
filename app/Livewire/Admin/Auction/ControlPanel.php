@@ -22,6 +22,14 @@ class ControlPanel extends Component
 {
     use AuthorizesRequests;
 
+    // Auction edit modal state for admin auction correction
+    public ?int $editAuctionPlayerId = null;
+    public ?int $editAuctionTeamId = null;
+    public $editAuctionAmount = null;
+    public array $editAuctionTeams = [];
+    public $editAuctionStepUp = 0;
+    public $editAuctionError = '';
+
     public Tournament $tournament;
     public int $selectedTournamentId = 0;
     public ?int $selectedPlayerId = null;
@@ -34,6 +42,79 @@ class ControlPanel extends Component
     public string $squadTeamName = '';
     public array $squadPlayers = [];
     public ?int $lockedAdvanceAt = null;
+
+    // Open the edit auction modal for a player
+    public function openEditAuctionModal(int $playerId): void
+    {
+        $player = Player::query()->findOrFail($playerId);
+        if ($player->status !== 'sold') {
+            $this->dispatch('toast', message: 'Only sold players can have auction details edited.');
+            return;
+        }
+        $tournament = Tournament::findOrFail($player->tournament_id);
+        $this->editAuctionPlayerId = $player->id;
+        $this->editAuctionTeamId = $player->sold_team_id;
+        $this->editAuctionAmount = $player->final_price;
+        $this->editAuctionTeams = Team::where('tournament_id', $player->tournament_id)->get(['id','name','wallet_balance'])->toArray();
+        $this->editAuctionStepUp = (float) ($tournament->base_increment ?? 1);
+        $this->editAuctionError = '';
+        $this->dispatch('show-edit-auction-modal');
+    }
+
+    // Save the edited auction details
+    public function saveEditAuctionDetails(): void
+    {
+        $player = Player::query()->findOrFail($this->editAuctionPlayerId);
+        $tournament = Tournament::findOrFail($player->tournament_id);
+        $stepUp = (float) ($tournament->base_increment ?? 1);
+        $amount = (float) $this->editAuctionAmount;
+        $newTeamId = (int) $this->editAuctionTeamId;
+        $oldTeamId = (int) $player->sold_team_id;
+        $oldAmount = (float) $player->final_price;
+        if ($amount < $stepUp || fmod($amount, $stepUp) !== 0.0) {
+            $this->editAuctionError = 'Amount must be a multiple of step up ('.$stepUp.') and at least step up.';
+            return;
+        }
+        $newTeam = Team::findOrFail($newTeamId);
+        if ($newTeam->wallet_balance + ($oldTeamId === $newTeamId ? $oldAmount : 0) < $amount) {
+            $this->editAuctionError = 'Selected team does not have enough wallet balance.';
+            return;
+        }
+        \DB::beginTransaction();
+        try {
+            // Refund old team if changed
+            if ($oldTeamId && $oldTeamId !== $newTeamId) {
+                $oldTeam = Team::find($oldTeamId);
+                if ($oldTeam) {
+                    $oldTeam->wallet_balance += $oldAmount;
+                    $oldTeam->save();
+                }
+            }
+            // Debit new team
+            if ($newTeamId) {
+                if ($oldTeamId === $newTeamId) {
+                    $newTeam->wallet_balance += $oldAmount; // refund old first
+                }
+                $newTeam->wallet_balance -= $amount;
+                $newTeam->save();
+            }
+            $player->sold_team_id = $newTeamId;
+            $player->final_price = $amount;
+            $player->save();
+            \DB::commit();
+            $this->editAuctionPlayerId = null;
+            $this->editAuctionTeamId = null;
+            $this->editAuctionAmount = null;
+            $this->editAuctionTeams = [];
+            $this->editAuctionStepUp = 0;
+            $this->editAuctionError = '';
+            $this->dispatch('toast', message: 'Auction details updated.');
+            $this->dispatch('hide-edit-auction-modal');
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            $this->editAuctionError = 'Failed to update auction details.';
+        }
+    }
 
     public function isAdminOnlyBidding(): bool
     {

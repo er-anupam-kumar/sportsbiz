@@ -70,11 +70,11 @@ Route::middleware('guest')->group(function () {
     Route::get('/reset-password/{token}', ResetPassword::class)->name('password.reset');
 });
 
-Route::post('/logout', function (Request $request) {
+
+Route::get('/logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
-
     return redirect()->route('login');
 })->middleware('auth')->name('logout');
 

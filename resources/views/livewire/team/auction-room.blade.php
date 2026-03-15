@@ -232,7 +232,13 @@
                 wire:loading.attr="disabled"
                 wire:target="placeBid"
                 class="px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold disabled:opacity-60"
-            >Place Bid</button>
+            >
+                <span class="inline-flex items-center">
+                    <svg wire:loading wire:target="placeBid" class="animate-spin h-4 w-4 mr-1 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    <span wire:loading wire:target="placeBid">Loading...</span>
+                    <span wire:loading.remove wire:target="placeBid">Place Bid</span>
+                </span>
+            </button>
         @else
             <div class="px-3 py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-xs font-semibold text-indigo-700">Bidding is managed by Admin only.</div>
         @endif
