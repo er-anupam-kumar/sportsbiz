@@ -10,14 +10,41 @@
         </div>
     </div>
 
-    <div class="max-w-sm">
-        <label class="block text-sm font-medium mb-1">Tournament Filter</label>
-        <select wire:model.live="tournamentId" class="sb-input">
-            <option value="0">All Tournaments</option>
-            @foreach($tournaments as $tournament)
-                <option value="{{ $tournament->id }}">{{ $tournament->name }}</option>
-            @endforeach
-        </select>
+
+    <div class="flex flex-wrap gap-3 items-end mb-2">
+        <div>
+            <label class="block text-sm font-medium mb-1">Tournament</label>
+            <select wire:model.live="tournamentId" class="sb-input">
+                <option value="0">All Tournaments</option>
+                @foreach($tournaments as $tournament)
+                    <option value="{{ $tournament->id }}">{{ $tournament->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">Category</label>
+            <select wire:model.live="categoryFilter" class="sb-input">
+                <option value="">All Categories</option>
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium mb-1">Status</label>
+            <select wire:model.live="statusFilter" class="sb-input">
+                <option value="">All Statuses</option>
+                <option value="available">Available</option>
+                <option value="sold">Sold</option>
+                <option value="unsold">Unsold</option>
+                <option value="retained">Retained</option>
+                <option value="withdrawn">Withdrawn</option>
+            </select>
+        </div>
+        <div class="flex-1 min-w-[180px]">
+            <label class="block text-sm font-medium mb-1">Search</label>
+            <input type="text" wire:model.live="search" class="sb-input" placeholder="Search by name or serial...">
+        </div>
     </div>
 
     <div class="sb-card p-4 space-y-3">
@@ -148,7 +175,7 @@ Jasprit Bumrah,93,1800,Bowler,available,30,India,MI</pre>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium mb-1">Amount</label>
-                                            <input type="number" wire:model="editAuctionAmount" :step="editAuctionStepUp" min="{{ $editAuctionStepUp }}" class="sb-input" />
+                                            <input type="number" wire:model="editAuctionAmount" :step="editAuctionStepUp" min="0" class="sb-input" />
                                             <div class="text-xs text-slate-500 mt-1">Step up: {{ number_format($editAuctionStepUp, 2) }}</div>
                                         </div>
                                         @if($editAuctionError)

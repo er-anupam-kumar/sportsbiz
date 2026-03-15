@@ -71,7 +71,22 @@ class ControlPanel extends Component
         $newTeamId = (int) $this->editAuctionTeamId;
         $oldTeamId = (int) $player->sold_team_id;
         $oldAmount = (float) $player->final_price;
-        if ($amount < $stepUp || fmod($amount, $stepUp) !== 0.0) {
+        // Enforce: For base price > 0, require a team and amount > 0. For base price = 0, require a team (amount can be zero)
+        if ($player->base_price > 0) {
+            if (!$newTeamId || $amount <= 0) {
+                $this->editAuctionError = 'A team and a nonzero amount are required for players with base price greater than zero.';
+                return;
+            }
+        } else {
+            if (!$newTeamId) {
+                $this->editAuctionError = 'A team must be selected.';
+                return;
+            }
+        }
+        // Allow 0 for base price 0 players, otherwise enforce step up
+        if ($player->base_price == 0 && $amount == 0) {
+            // allow
+        } else if ($amount < $stepUp || fmod($amount, $stepUp) !== 0.0) {
             $this->editAuctionError = 'Amount must be a multiple of step up ('.$stepUp.') and at least step up.';
             return;
         }
@@ -87,6 +102,10 @@ class ControlPanel extends Component
                 $oldTeam = Team::find($oldTeamId);
                 if ($oldTeam) {
                     $oldTeam->wallet_balance += $oldAmount;
+                    // Decrement squad_count for old team
+                    if ($oldTeam->squad_count > 0) {
+                        $oldTeam->squad_count -= 1;
+                    }
                     $oldTeam->save();
                 }
             }
@@ -96,6 +115,10 @@ class ControlPanel extends Component
                     $newTeam->wallet_balance += $oldAmount; // refund old first
                 }
                 $newTeam->wallet_balance -= $amount;
+                // If team changed, increment squad_count for new team
+                if ($oldTeamId !== $newTeamId) {
+                    $newTeam->squad_count += 1;
+                }
                 $newTeam->save();
             }
             $player->sold_team_id = $newTeamId;
@@ -478,6 +501,16 @@ class ControlPanel extends Component
         if (! $team) {
             $this->dispatch('toast', message: 'Team not found.');
             return;
+        }
+
+        // Resync squad_count for this team
+        $actualCount = Player::where('tournament_id', $this->tournament->id)
+            ->where('sold_team_id', $team->id)
+            ->where('status', 'sold')
+            ->count();
+        if ($team->squad_count !== $actualCount) {
+            $team->squad_count = $actualCount;
+            $team->save();
         }
 
         $this->squadTeamName = $team->name;
@@ -903,6 +936,19 @@ class ControlPanel extends Component
 
     public function render()
     {
+        // Resync squad_count for all teams in this tournament
+        $teams = Team::where('tournament_id', $this->tournament->id)->get();
+        foreach ($teams as $team) {
+            $actualCount = Player::where('tournament_id', $this->tournament->id)
+                ->where('sold_team_id', $team->id)
+                ->where('status', 'sold')
+                ->count();
+            if ($team->squad_count !== $actualCount) {
+                $team->squad_count = $actualCount;
+                $team->save();
+            }
+        }
+
         $auction = Auction::query()
             ->with('currentPlayer:id,name,serial_no,image_path,category_id', 'currentPlayer.category:id,name', 'currentHighestTeam:id,name,logo_path,primary_color,secondary_color')
             ->where('tournament_id', $this->tournament->id)

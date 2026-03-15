@@ -278,6 +278,16 @@ class AuctionRoom extends Component
 
     public function render()
     {
+        // Resync squad_count for all teams in this tournament
+        $teams = Team::where('tournament_id', $this->tournamentId)->get();
+        foreach ($teams as $team) {
+            $actualCount = Player::where('sold_team_id', $team->id)->where('status', 'sold')->count();
+            if ($team->squad_count !== $actualCount) {
+                $team->squad_count = $actualCount;
+                $team->save();
+            }
+        }
+
         $auction = Auction::with('currentPlayer:id,tournament_id,category_id,name,serial_no,image_path,base_price,age,country,previous_team,status', 'currentPlayer.category', 'currentHighestTeam')
             ->where('tournament_id', $this->tournamentId)
             ->first();

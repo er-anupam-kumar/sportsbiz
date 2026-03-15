@@ -464,7 +464,7 @@
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium mb-1">Amount</label>
-                                                <input type="number" wire:model="editAuctionAmount" :step="editAuctionStepUp" min="{{ $editAuctionStepUp }}" class="sb-input" />
+                                                <input type="number" wire:model="editAuctionAmount" :step="editAuctionStepUp" min="0" class="sb-input" />
                                                 <div class="text-xs text-slate-500 mt-1">Step up: {{ number_format($editAuctionStepUp, 2) }}</div>
                                             </div>
                                             @if($editAuctionError)

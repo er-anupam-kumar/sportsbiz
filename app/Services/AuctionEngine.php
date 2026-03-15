@@ -125,9 +125,23 @@ class AuctionEngine
         return DB::transaction(function () use ($auctionId): Player {
             $auction = Auction::query()->whereKey($auctionId)->lockForUpdate()->firstOrFail();
 
-            if (! $auction->current_player_id || ! $auction->current_highest_team_id || $auction->current_bid <= 0) {
+
+            if (! $auction->current_player_id) {
                 throw new AuctionException('No sellable state found in active auction.');
             }
+
+            $player = Player::query()->whereKey($auction->current_player_id)->lockForUpdate()->firstOrFail();
+
+            // Explicit logic: For base price > 0, require a bid (current_highest_team_id)
+            if ($player->base_price > 0 && ! $auction->current_highest_team_id) {
+                throw new AuctionException('A bid must be placed to mark as sold.');
+            }
+            // For base price 0, allow marking as sold if a team has placed a bid (current_highest_team_id set, even if bid is 0)
+            if ($player->base_price == 0 && ! $auction->current_highest_team_id) {
+                throw new AuctionException('A team must be selected to mark as sold.');
+            }
+
+            $team = Team::query()->whereKey($auction->current_highest_team_id)->lockForUpdate()->firstOrFail();
 
             $player = Player::query()->whereKey($auction->current_player_id)->lockForUpdate()->firstOrFail();
             $team = Team::query()->whereKey($auction->current_highest_team_id)->lockForUpdate()->firstOrFail();

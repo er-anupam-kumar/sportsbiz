@@ -21,6 +21,13 @@ class SquadView extends Component
     {
         $team = Team::where('user_id', auth()->id())->where('tournament_id', $this->tournamentId)->firstOrFail();
 
+        // Resync squad_count for this team
+        $actualCount = Player::where('sold_team_id', $team->id)->where('status', 'sold')->count();
+        if ($team->squad_count !== $actualCount) {
+            $team->squad_count = $actualCount;
+            $team->save();
+        }
+
         $players = Player::query()
             ->where('sold_team_id', $team->id)
             ->where('status', 'sold')

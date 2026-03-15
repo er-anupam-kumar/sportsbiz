@@ -18,6 +18,10 @@ use Livewire\WithPagination;
 #[Layout('layouts.admin')]
 class Manager extends Component
 {
+    // Search and filter state
+    public string $search = '';
+    public string $statusFilter = '';
+    public string $categoryFilter = '';
     use WithFileUploads;
     use WithPagination;
 
@@ -55,7 +59,24 @@ class Manager extends Component
         $newTeamId = (int) $this->editAuctionTeamId;
         $oldTeamId = (int) $player->sold_team_id;
         $oldAmount = (float) $player->final_price;
-        if ($amount < $stepUp || fmod($amount, $stepUp) !== 0.0) {
+
+        // Enforce: For base price > 0, require a team and amount > 0. For base price = 0, require a team (amount can be zero)
+        if ($player->base_price > 0) {
+            if (!$newTeamId || $amount <= 0) {
+                $this->editAuctionError = 'A team and a nonzero amount are required for players with base price greater than zero.';
+                return;
+            }
+        } else {
+            if (!$newTeamId) {
+                $this->editAuctionError = 'A team must be selected.';
+                return;
+            }
+        }
+
+        // Allow 0 for base price 0 players, otherwise enforce step up
+        if ($player->base_price == 0 && $amount == 0) {
+            // allow
+        } else if ($amount < $stepUp || fmod($amount, $stepUp) !== 0.0) {
             $this->editAuctionError = 'Amount must be a multiple of step up ('.$stepUp.') and at least step up.';
             return;
         }
@@ -70,16 +91,25 @@ class Manager extends Component
             if ($oldTeamId && $oldTeamId !== $newTeamId) {
                 $oldTeam = Team::find($oldTeamId);
                 if ($oldTeam) {
-                    $oldTeam->wallet_balance += $oldAmount;
+                    // Use bcadd for decimal math
+                    $oldTeam->wallet_balance = (string)bcadd((string)$oldTeam->wallet_balance, (string)$oldAmount, 2);
+                    // Decrement squad_count for old team
+                    if ($oldTeam->squad_count > 0) {
+                        $oldTeam->squad_count -= 1;
+                    }
                     $oldTeam->save();
                 }
             }
             // Debit new team
             if ($newTeamId) {
                 if ($oldTeamId === $newTeamId) {
-                    $newTeam->wallet_balance += $oldAmount; // refund old first
+                    $newTeam->wallet_balance = (string)bcadd((string)$newTeam->wallet_balance, (string)$oldAmount, 2); // refund old first
                 }
-                $newTeam->wallet_balance -= $amount;
+                $newTeam->wallet_balance = (string)bcsub((string)$newTeam->wallet_balance, (string)$amount, 2);
+                // If team changed, increment squad_count for new team
+                if ($oldTeamId !== $newTeamId) {
+                    $newTeam->squad_count += 1;
+                }
                 $newTeam->save();
             }
             $player->sold_team_id = $newTeamId;
@@ -521,11 +551,20 @@ class Manager extends Component
         return view($isFormPage ? 'livewire.admin.players.form' : 'livewire.admin.players.index', [
             'tournaments' => Tournament::where('admin_id', $adminId)->get(['id', 'name']),
             'quota' => AdminQuota::playerStats($adminId),
-            'categories' => $this->formTournamentId > 0
-                ? PlayerCategory::query()->where('tournament_id', $this->formTournamentId)->orderBy('name')->get(['id', 'name'])
+            'categories' => $this->tournamentId > 0
+                ? PlayerCategory::query()->where('tournament_id', $this->tournamentId)->orderBy('name')->get(['id', 'name'])
                 : collect(),
             'players' => Player::query()
                 ->when($this->tournamentId > 0, fn ($query) => $query->where('tournament_id', $this->tournamentId))
+                ->when($this->categoryFilter !== '', fn ($query) => $query->where('category_id', $this->categoryFilter))
+                ->when($this->statusFilter !== '', fn ($query) => $query->where('status', $this->statusFilter))
+                ->when($this->search !== '', function ($query) {
+                    $search = '%' . $this->search . '%';
+                    $query->where(function ($q) use ($search) {
+                        $q->where('name', 'like', $search)
+                          ->orWhere('serial_no', 'like', $search);
+                    });
+                })
                 ->where('admin_id', $adminId)
                 ->whereIn('tournament_id', $tournamentIds)
                 ->with(['tournament:id,name', 'category:id,name'])
