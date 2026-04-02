@@ -17,6 +17,7 @@ class Team extends Model
         'user_id',
         'name',
         'logo_path',
+        'jersey_image_path',
         'primary_color',
         'secondary_color',
         'wallet_balance',
@@ -62,6 +63,11 @@ class Team extends Model
         return $this->hasMany(Player::class, 'sold_team_id');
     }
 
+    public function jerseyRequests(): HasMany
+    {
+        return $this->hasMany(TeamJerseyRequest::class);
+    }
+
     public function getLogoUrlAttribute(): string
     {
         if (! $this->logo_path) {
@@ -71,5 +77,16 @@ class Team extends Model
         return str_starts_with($this->logo_path, 'http')
             ? $this->logo_path
             : asset('storage/'.$this->logo_path);
+    }
+
+    public function getJerseyImageUrlAttribute(): string
+    {
+        if (! $this->jersey_image_path) {
+            return asset('images/team-placeholder.svg');
+        }
+
+        return str_starts_with($this->jersey_image_path, 'http')
+            ? $this->jersey_image_path
+            : asset('storage/'.$this->jersey_image_path);
     }
 }

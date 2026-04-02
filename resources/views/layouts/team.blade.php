@@ -16,7 +16,7 @@
         $teamTournamentId = $teamModel?->tournament_id;
         $currentRoute = request()->route()?->getName();
         $isActive = fn (array $names): bool => in_array($currentRoute, $names, true);
-        $activeSection = $isActive(['team.auction-room', 'team.squad', 'team.bid-history']) ? 'auction' : 'overview';
+        $activeSection = $isActive(['team.auction-room', 'team.squad', 'team.bid-history', 'team.jersey-requirements']) ? 'auction' : 'overview';
     @endphp
     <div class="min-h-screen flex w-full min-w-0 overflow-x-hidden">
         <aside class="fixed inset-y-0 left-0 z-40 w-64 sb-sidebar text-white transform transition shadow-2xl" :class="mobileSidebar ? 'translate-x-0' : (desktopSidebarOpen ? '-translate-x-full md:translate-x-0' : '-translate-x-full md:-translate-x-full')">
@@ -43,6 +43,7 @@
                             <a href="{{ route('team.auction-room', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.auction-room']) ? 'bg-white/20' : '' }}"><i data-lucide="gavel" class="w-4 h-4"></i>Auction Room</a>
                             <a href="{{ route('team.squad', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.squad']) ? 'bg-white/20' : '' }}"><i data-lucide="users" class="w-4 h-4"></i>Squad</a>
                             <a href="{{ route('team.bid-history', $teamTournamentId) }}" class="sb-nav-link {{ $isActive(['team.bid-history']) ? 'bg-white/20' : '' }}"><i data-lucide="scroll-text" class="w-4 h-4"></i>Bid History</a>
+                            <a href="{{ route('team.jersey-requirements') }}" class="sb-nav-link {{ $isActive(['team.jersey-requirements']) ? 'bg-white/20' : '' }}"><i data-lucide="shirt" class="w-4 h-4"></i>Jersey Requirements</a>
                         </div>
                     </div>
                 @endif

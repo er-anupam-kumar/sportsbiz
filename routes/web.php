@@ -9,6 +9,7 @@ use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Admin\Auction\ControlPanel;
+use App\Livewire\Admin\Jersey\Requirements as AdminJerseyRequirements;
 use App\Livewire\Admin\Categories\Manager as CategoriesManager;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\Players\Manager as PlayersManager;
@@ -27,6 +28,7 @@ use App\Livewire\SuperAdmin\SubscriptionManager;
 use App\Livewire\Team\AuctionRoom;
 use App\Livewire\Team\BidHistory;
 use App\Livewire\Team\Dashboard as TeamDashboard;
+use App\Livewire\Team\JerseyRequirements;
 use App\Livewire\Team\SquadView;
 use App\Models\Auction;
 use App\Models\Tournament;
@@ -103,6 +105,7 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('/categories', CategoriesManager::class)->name('categories');
         Route::get('/auction/{tournament}', ControlPanel::class)->name('auction.control');
         Route::get('/reports', AdminReports::class)->name('reports');
+        Route::get('/jersey-requirements', AdminJerseyRequirements::class)->name('jersey-requirements');
     });
 
     Route::middleware(['role:Team', 'subscription.active'])->prefix('team')->name('team.')->group(function () {
@@ -110,6 +113,7 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('/auction/{tournamentId}', AuctionRoom::class)->name('auction-room');
         Route::get('/squad/{tournamentId}', SquadView::class)->name('squad');
         Route::get('/bids/{tournamentId}', BidHistory::class)->name('bid-history');
+        Route::get('/jersey-requirements', JerseyRequirements::class)->name('jersey-requirements');
     });
 
     Route::post('/bids/place', BidController::class)

@@ -27,6 +27,7 @@ class Settings extends Component
     public bool $antiSniping = true;
     public string $auctionType = 'live';
     public string $biddingType = 'admin_only';
+    public bool $jerseyModuleEnabled = false;
     public string $status = 'draft';
     public $banner;
     public ?string $existingBannerPath = null;
@@ -44,6 +45,7 @@ class Settings extends Component
         $this->antiSniping = (bool) $tournament->anti_sniping;
         $this->auctionType = $tournament->auction_type;
         $this->biddingType = $tournament->bidding_type ?: 'admin_only';
+        $this->jerseyModuleEnabled = (bool) $tournament->jersey_module_enabled;
         $this->status = $tournament->status;
         $this->existingBannerPath = $tournament->banner_path;
     }
@@ -68,6 +70,7 @@ class Settings extends Component
             'antiSniping' => ['boolean'],
             'auctionType' => ['required', 'in:live,silent'],
             'biddingType' => ['required', 'in:admin_only,team_open'],
+            'jerseyModuleEnabled' => ['boolean'],
             'status' => ['required', 'in:draft,active,paused,completed'],
             'banner' => ['nullable', 'image', 'max:4096'],
         ]);
@@ -82,6 +85,7 @@ class Settings extends Component
             'anti_sniping' => $this->antiSniping,
             'auction_type' => $this->auctionType,
             'bidding_type' => $this->biddingType,
+            'jersey_module_enabled' => $this->jerseyModuleEnabled,
             'status' => $this->status,
         ];
 

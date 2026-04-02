@@ -78,6 +78,7 @@
             @error('status') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
         <label class="flex items-center gap-2 text-sm font-medium pt-7"><input type="checkbox" wire:model="antiSniping"> Anti-sniping</label>
+        <label class="flex items-center gap-2 text-sm font-medium pt-7"><input type="checkbox" wire:model="jerseyModuleEnabled"> Enable Jersey Module</label>
     </div>
     <button wire:click="save" wire:loading.attr="disabled" class="px-4 py-2 sb-btn-primary" wire:target="save">
         <span class="inline-flex items-center">

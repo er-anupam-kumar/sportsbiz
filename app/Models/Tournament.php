@@ -25,6 +25,7 @@ class Tournament extends Model
         'anti_sniping',
         'auction_type',
         'bidding_type',
+        'jersey_module_enabled',
         'status',
         'starts_at',
         'trade_window_ends_at',
@@ -35,6 +36,7 @@ class Tournament extends Model
         return [
             'category_limits' => 'array',
             'anti_sniping' => 'boolean',
+            'jersey_module_enabled' => 'boolean',
             'starts_at' => 'datetime',
             'trade_window_ends_at' => 'datetime',
             'purse_amount' => 'decimal:2',
@@ -60,6 +62,11 @@ class Tournament extends Model
     public function players(): HasMany
     {
         return $this->hasMany(Player::class);
+    }
+
+    public function jerseyRequests(): HasMany
+    {
+        return $this->hasMany(TeamJerseyRequest::class);
     }
 
     public function categories(): HasMany

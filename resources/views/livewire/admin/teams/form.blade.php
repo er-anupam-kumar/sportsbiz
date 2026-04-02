@@ -56,6 +56,16 @@
                 @endif
             </div>
             <div>
+                <label class="block text-sm font-medium mb-1">Team Jersey Image</label>
+                <input type="file" wire:model="jerseyImage" accept="image/*" class="sb-input">
+                @error('jerseyImage') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                @if($jerseyImage)
+                    <img src="{{ $jerseyImage->temporaryUrl() }}" alt="Team jersey preview" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
+                @elseif($existingJerseyImagePath)
+                    <img src="{{ str_starts_with($existingJerseyImagePath, 'http') ? $existingJerseyImagePath : asset('storage/'.$existingJerseyImagePath) }}" alt="Team jersey" class="mt-2 h-12 w-12 rounded-lg object-cover border border-slate-200">
+                @endif
+            </div>
+            <div>
                 <label class="block text-sm font-medium mb-1">Primary Color</label>
                 <input type="color" wire:model="primaryColor" class="h-10 w-full border border-slate-300 rounded-lg px-2 py-1">
                 @error('primaryColor') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror

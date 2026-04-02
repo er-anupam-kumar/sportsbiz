@@ -32,6 +32,8 @@ class Manager extends Component
     public bool $isLocked = false;
     public $logo;
     public ?string $existingLogoPath = null;
+    public $jerseyImage;
+    public ?string $existingJerseyImagePath = null;
     public string $primaryColor = '';
     public string $secondaryColor = '';
     public bool $showSquadModal = false;
@@ -91,6 +93,7 @@ class Manager extends Component
             'walletBalance' => ['required', 'numeric', 'min:0'],
             'isLocked' => ['boolean'],
             'logo' => ['nullable', 'image', 'max:2048'],
+            'jerseyImage' => ['nullable', 'image', 'max:4096'],
             'primaryColor' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6})$/'],
             'secondaryColor' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6})$/'],
         ]);
@@ -154,11 +157,21 @@ class Manager extends Component
                 $payload['logo_path'] = $this->logo->store('teams/logos', 'public');
             }
 
+            if ($this->jerseyImage) {
+                if ($team->jersey_image_path) {
+                    Storage::disk('public')->delete($team->jersey_image_path);
+                }
+                $payload['jersey_image_path'] = $this->jerseyImage->store('teams/jerseys', 'public');
+            }
+
             $team->update($payload);
             $message = 'Team updated.';
         } else {
             if ($this->logo) {
                 $payload['logo_path'] = $this->logo->store('teams/logos', 'public');
+            }
+            if ($this->jerseyImage) {
+                $payload['jersey_image_path'] = $this->jerseyImage->store('teams/jerseys', 'public');
             }
             Team::query()->create($payload);
             $message = 'Team created.';
@@ -180,6 +193,8 @@ class Manager extends Component
         $this->isLocked = (bool) $team->is_locked;
         $this->existingLogoPath = $team->logo_path;
         $this->logo = null;
+        $this->existingJerseyImagePath = $team->jersey_image_path;
+        $this->jerseyImage = null;
         $this->primaryColor = (string) ($team->primary_color ?? '');
         $this->secondaryColor = (string) ($team->secondary_color ?? '');
     }
@@ -198,6 +213,9 @@ class Manager extends Component
 
         if ($team->logo_path) {
             Storage::disk('public')->delete($team->logo_path);
+        }
+        if ($team->jersey_image_path) {
+            Storage::disk('public')->delete($team->jersey_image_path);
         }
 
         $team->delete();
@@ -257,6 +275,8 @@ class Manager extends Component
             'isLocked',
             'logo',
             'existingLogoPath',
+            'jerseyImage',
+            'existingJerseyImagePath',
             'primaryColor',
             'secondaryColor',
         ]);
