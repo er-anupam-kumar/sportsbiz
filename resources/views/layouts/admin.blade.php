@@ -22,6 +22,7 @@
             'admin.teams.index', 'admin.teams.create', 'admin.teams.edit',
             'admin.players.index', 'admin.players.create', 'admin.players.edit',
             'admin.categories',
+            'admin.fixtures.index',
             'admin.jersey-requirements',
         ])) {
             $activeSection = 'setup';
@@ -97,6 +98,7 @@
                         </div>
 
                         <a href="{{ route('admin.categories') }}" class="sb-nav-link {{ $isActive(['admin.categories']) ? 'bg-white/20' : '' }}"><i data-lucide="layers" class="w-4 h-4"></i>Categories</a>
+                        <a href="{{ route('admin.fixtures.index') }}" class="sb-nav-link {{ $isActive(['admin.fixtures.index']) ? 'bg-white/20' : '' }}"><i data-lucide="calendar-days" class="w-4 h-4"></i>Fixtures</a>
                         <a href="{{ route('admin.jersey-requirements') }}" class="sb-nav-link {{ $isActive(['admin.jersey-requirements']) ? 'bg-white/20' : '' }}"><i data-lucide="shirt" class="w-4 h-4"></i>Jersey Requirements</a>
                     </div>
                 </div>

@@ -47,41 +47,76 @@
                 <tr>
                     <th class="sb-table-cell">Team</th>
                     <th class="sb-table-cell">Tournament</th>
-                    <th class="sb-table-cell">Player</th>
-                    <th class="sb-table-cell">Size</th>
-                    <th class="sb-table-cell">Nickname</th>
-                    <th class="sb-table-cell">Jersey No</th>
-                    <th class="sb-table-cell">Additional</th>
-                    <th class="sb-table-cell">Additional Qty</th>
-                    <th class="sb-table-cell">Submitted At</th>
+                    <th class="sb-table-cell">Total Requirements</th>
+                    <th class="sb-table-cell">Additional Requests</th>
+                    <th class="sb-table-cell">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($entries as $entry)
+                @forelse($teams as $team)
                     <tr class="border-b border-slate-100 last:border-b-0">
                         <td class="sb-table-cell">
                             <div class="flex items-center gap-3">
-                                <img src="{{ $entry->team?->jersey_image_url }}" alt="{{ $entry->team?->name }} jersey" class="h-10 w-10 rounded-lg object-cover border border-slate-200">
-                                <span class="text-slate-800">{{ $entry->team?->name ?? '-' }}</span>
+                                <img src="{{ $team->jersey_image_url }}" alt="{{ $team->name }} jersey" class="h-10 w-10 rounded-lg object-cover border border-slate-200">
+                                <span class="text-slate-800">{{ $team->name }}</span>
                             </div>
                         </td>
-                        <td class="sb-table-cell">{{ $entry->tournament?->name ?? '-' }}</td>
-                        <td class="sb-table-cell text-slate-800">{{ $entry->player_name }}</td>
-                        <td class="sb-table-cell">{{ $entry->size }}</td>
-                        <td class="sb-table-cell">{{ $entry->nickname ?: '-' }}</td>
-                        <td class="sb-table-cell">{{ $entry->jersey_number }}</td>
-                        <td class="sb-table-cell">{{ $entry->additional_jersey_required ? 'Yes' : 'No' }}</td>
-                        <td class="sb-table-cell">{{ $entry->additional_jersey_required ? ($entry->additional_jersey_quantity ?: 0) : '-' }}</td>
-                        <td class="sb-table-cell">{{ $entry->created_at?->format('d M Y, h:i A') }}</td>
+                        <td class="sb-table-cell">{{ $team->tournament?->name ?? '-' }}</td>
+                        <td class="sb-table-cell">{{ $team->requirements_count }}</td>
+                        <td class="sb-table-cell">{{ $team->additional_count }}</td>
+                        <td class="sb-table-cell">
+                            <div class="flex flex-wrap gap-2">
+                                <button wire:click="viewDetails({{ $team->id }})" class="sb-action-chip border-indigo-200 text-indigo-700">View Details</button>
+                                <button wire:click="exportExcel({{ $team->id }})" class="sb-action-chip border-emerald-200 text-emerald-700">Download Excel</button>
+                                <button wire:click="exportPdf({{ $team->id }})" class="sb-action-chip border-rose-200 text-rose-700">Download PDF</button>
+                            </div>
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="p-4 text-center text-slate-500">No jersey requirements found.</td>
+                        <td colspan="5" class="p-4 text-center text-slate-500">No teams with jersey requirements found.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
     </div>
 
-    {{ $entries->links() }}
+    {{ $teams->links() }}
+
+    @if($selectedTeamEntries->isNotEmpty())
+        <div class="sb-card p-4 overflow-x-auto">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="font-semibold">Requirement Details</h2>
+                <button wire:click="clearDetails" class="sb-action-chip border-slate-300 text-slate-700">Close</button>
+            </div>
+            <table class="w-full">
+                <thead class="sb-table-head text-left text-sm text-slate-700 border-b">
+                    <tr>
+                        <th class="sb-table-cell">Type</th>
+                        <th class="sb-table-cell">Name</th>
+                        <th class="sb-table-cell">Size</th>
+                        <th class="sb-table-cell">Nickname</th>
+                        <th class="sb-table-cell">Jersey No</th>
+                        <th class="sb-table-cell">Additional</th>
+                        <th class="sb-table-cell">Additional Qty</th>
+                        <th class="sb-table-cell">Submitted At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($selectedTeamEntries as $entry)
+                        <tr class="border-b border-slate-100 last:border-b-0">
+                            <td class="sb-table-cell">{{ ucfirst($entry->request_for ?? 'player') }}</td>
+                            <td class="sb-table-cell text-slate-800">{{ $entry->request_for === 'staff' ? ($entry->staff_name ?: $entry->player_name) : $entry->player_name }}</td>
+                            <td class="sb-table-cell">{{ $entry->size }}</td>
+                            <td class="sb-table-cell">{{ $entry->nickname ?: '-' }}</td>
+                            <td class="sb-table-cell">{{ $entry->jersey_number }}</td>
+                            <td class="sb-table-cell">{{ $entry->additional_jersey_required ? 'Yes' : 'No' }}</td>
+                            <td class="sb-table-cell">{{ $entry->additional_jersey_required ? ($entry->additional_jersey_quantity ?: 0) : '-' }}</td>
+                            <td class="sb-table-cell">{{ $entry->created_at?->format('d M Y, h:i A') }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 </div>

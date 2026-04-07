@@ -17,6 +17,7 @@
                 <span class="truncate">SportsBiz Auction Platform</span>
             </div>
             <div class="flex items-center gap-2 text-sm">
+                <a href="{{ route('public.tournaments.index') }}" class="px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold">Tournaments</a>
                 @auth
                     <a href="{{ auth()->user()->hasRole('SuperAdmin') ? route('super-admin.dashboard') : (auth()->user()->hasRole('Admin') ? route('admin.dashboard') : route('team.dashboard')) }}" class="px-3 py-2 rounded-lg text-white font-semibold sb-btn-primary shadow-lg">Dashboard</a>
                 @else
@@ -97,40 +98,55 @@
                             <i data-lucide="radio-tower" class="w-5 h-5 text-indigo-700"></i>
                             Current Tournaments & Live Auctions
                         </h2>
-                        <p class="text-sm text-slate-600 mt-1">Open any tournament auction viewer directly from here.</p>
+                        <p class="text-sm text-slate-600 mt-1">Track tournament status and jump directly to the live auction view.</p>
                     </div>
+                    <a href="{{ route('public.tournaments.index') }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition">
+                        <i data-lucide="trophy" class="w-4 h-4"></i>
+                        Browse Tournaments
+                    </a>
                 </div>
 
                 @if(($tournaments ?? collect())->isEmpty())
                     <div class="rounded-xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-600">No tournaments available yet.</div>
                 @else
-                    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
                         @foreach($tournaments as $tournament)
                             @php
                                 $isRunning = in_array($tournament->id, $runningTournamentIds ?? [], true);
                                 $auctionStarted = (bool) ($tournament->auction?->current_player_id);
                             @endphp
-                            <div class="sb-card p-4 space-y-3">
+                            <article class="sb-card p-4 bg-white border border-slate-200 shadow-sm space-y-3">
+                                <img src="{{ $tournament->banner_url }}" alt="{{ $tournament->name }} banner" class="w-full h-28 rounded-lg object-cover border border-slate-200">
+
                                 <div class="flex items-start justify-between gap-2">
                                     <div class="min-w-0">
                                         <div class="text-base font-bold text-slate-900 truncate">{{ $tournament->name }}</div>
-                                        <div class="text-xs text-slate-500">{{ $tournament->sport?->name ?? 'Sport' }}</div>
+                                        <div class="text-xs text-slate-500 mt-0.5">{{ $tournament->sport?->name ?? 'Sport' }}</div>
                                     </div>
                                     <span class="text-[11px] px-2 py-1 rounded-full font-semibold {{ $isRunning ? 'bg-emerald-100 text-emerald-700' : ($auctionStarted ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700') }}">
                                         {{ $isRunning ? 'LIVE' : ($auctionStarted ? 'PAUSED' : 'NOT STARTED') }}
                                     </span>
                                 </div>
 
-                                <div class="text-xs text-slate-600 space-y-1">
-                                    <div>Status: <span class="font-semibold text-slate-800">{{ strtoupper((string) ($tournament->status ?? 'draft')) }}</span></div>
-                                    <div>Start: <span class="font-semibold text-slate-800">{{ $tournament->starts_at ? $tournament->starts_at->format('d M Y, h:i A') : 'TBD' }}</span></div>
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Status</div>
+                                        <div class="font-semibold text-slate-800">{{ strtoupper((string) ($tournament->status ?? 'draft')) }}</div>
+                                    </div>
+                                    <div class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                        <div class="text-[10px] uppercase tracking-wide text-slate-500">Start</div>
+                                        <div class="font-semibold text-slate-800">{{ $tournament->starts_at ? $tournament->starts_at->format('d M Y') : 'TBD' }}</div>
+                                    </div>
                                 </div>
 
-                                <a href="{{ route('public.auction-viewer', $tournament->id) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white font-semibold sb-btn-primary shadow">
-                                    <i data-lucide="external-link" class="w-4 h-4"></i>
-                                    Open Auction Page
-                                </a>
-                            </div>
+                                <div class="flex items-center gap-2">
+                                    <a href="{{ route('public.tournaments.show', $tournament->id) }}" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition">View Fixtures</a>
+                                    <a href="{{ route('public.auction-viewer', $tournament->id) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white text-sm font-semibold sb-btn-primary shadow">
+                                        <i data-lucide="external-link" class="w-4 h-4"></i>
+                                        Open Auction
+                                    </a>
+                                </div>
+                            </article>
                         @endforeach
                     </div>
                 @endif

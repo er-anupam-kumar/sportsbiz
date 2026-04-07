@@ -19,6 +19,7 @@
                 </a>
                 <div class="flex items-center gap-2 text-sm">
                     <a href="{{ url('/') }}" class="px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-medium">Home</a>
+                    <a href="{{ route('public.tournaments.index') }}" class="px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium">Tournaments</a>
                     @auth
                         <a href="{{ url('/dashboard') }}" class="px-3 py-2 rounded-lg bg-white border border-slate-200 font-medium">Dashboard</a>
                     @else

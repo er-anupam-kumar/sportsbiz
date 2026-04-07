@@ -32,14 +32,12 @@
 
             <div class="grid md:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-sm font-medium mb-1">Select Player</label>
-                    <select wire:model="playerId" class="sb-input" @disabled(! $tournament->jersey_module_enabled)>
-                        <option value="0">Select player</option>
-                        @foreach($players as $player)
-                            <option value="{{ $player->id }}">{{ $player->name }}{{ $player->serial_no ? ' ('.$player->serial_no.')' : '' }}</option>
-                        @endforeach
+                    <label class="block text-sm font-medium mb-1">Booking For</label>
+                    <select wire:model.live="requestFor" class="sb-input" @disabled(! $tournament->jersey_module_enabled)>
+                        <option value="player">Player</option>
+                        <option value="staff">Staff</option>
                     </select>
-                    @error('playerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    @error('requestFor') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 </div>
 
                 <div>
@@ -56,6 +54,25 @@
                     </select>
                     @error('size') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                 </div>
+
+                @if($requestFor === 'player')
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Select Player</label>
+                        <select wire:model="playerId" class="sb-input" @disabled(! $tournament->jersey_module_enabled)>
+                            <option value="0">Select player</option>
+                            @foreach($players as $player)
+                                <option value="{{ $player->id }}">{{ $player->name }}{{ $player->serial_no ? ' ('.$player->serial_no.')' : '' }}</option>
+                            @endforeach
+                        </select>
+                        @error('playerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @else
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Staff Name</label>
+                        <input wire:model="staffName" class="sb-input" placeholder="Enter staff name" @disabled(! $tournament->jersey_module_enabled)>
+                        @error('staffName') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @endif
 
                 <div>
                     <label class="block text-sm font-medium mb-1">Enter Nickname</label>
@@ -92,7 +109,8 @@
                 <table class="w-full">
                     <thead class="sb-table-head text-left text-sm text-slate-700 border-b">
                         <tr>
-                            <th class="sb-table-cell">Player</th>
+                            <th class="sb-table-cell">Type</th>
+                            <th class="sb-table-cell">Name</th>
                             <th class="sb-table-cell">Size</th>
                             <th class="sb-table-cell">Nickname</th>
                             <th class="sb-table-cell">Jersey No</th>
@@ -104,7 +122,8 @@
                     <tbody>
                         @forelse($entries as $entry)
                             <tr class="border-b border-slate-100 last:border-b-0">
-                                <td class="sb-table-cell text-slate-800">{{ $entry->player_name }}</td>
+                                <td class="sb-table-cell">{{ ucfirst($entry->request_for ?? 'player') }}</td>
+                                <td class="sb-table-cell text-slate-800">{{ $entry->request_for === 'staff' ? ($entry->staff_name ?: $entry->player_name) : $entry->player_name }}</td>
                                 <td class="sb-table-cell">{{ $entry->size }}</td>
                                 <td class="sb-table-cell">{{ $entry->nickname ?: '-' }}</td>
                                 <td class="sb-table-cell">{{ $entry->jersey_number }}</td>
@@ -114,7 +133,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="p-4 text-center text-slate-500">No jersey entries submitted yet.</td>
+                                <td colspan="8" class="p-4 text-center text-slate-500">No jersey entries submitted yet.</td>
                             </tr>
                         @endforelse
                     </tbody>
