@@ -109,6 +109,38 @@ class MatchDetails extends Component
 
             $currentInnings = (int) ($payload['current_innings'] ?? 1);
             $scorecardStats = $this->buildCricketScorecardStats($fixture, $currentInnings, (array) ($meta['ball_history'] ?? []));
+            $heroTeams = [
+                [
+                    'id' => (int) ($fixture->homeTeam?->id ?? 0),
+                    'name' => $fixture->home_display_name,
+                    'logo' => $fixture->homeTeam?->logo_url ?? asset('images/team-placeholder.svg'),
+                    'score' => '-',
+                    'overs' => '-',
+                ],
+                [
+                    'id' => (int) ($fixture->awayTeam?->id ?? 0),
+                    'name' => $fixture->away_display_name,
+                    'logo' => $fixture->awayTeam?->logo_url ?? asset('images/team-placeholder.svg'),
+                    'score' => '-',
+                    'overs' => '-',
+                ],
+            ];
+
+            foreach ([1, 2] as $inn) {
+                $in = (array) ($innings[$inn] ?? []);
+                if (empty($in)) {
+                    continue;
+                }
+
+                $battingTeamId = (int) ($in['batting_team_id'] ?? 0);
+                $teamIndex = collect($heroTeams)->search(fn (array $t): bool => (int) $t['id'] === $battingTeamId);
+                if ($teamIndex === false) {
+                    continue;
+                }
+
+                $heroTeams[$teamIndex]['score'] = (int) ($in['runs'] ?? 0).'/'.(int) ($in['wickets'] ?? 0);
+                $heroTeams[$teamIndex]['overs'] = (int) ($in['overs'] ?? 0).'.'.(int) ($in['balls'] ?? 0).' Overs';
+            }
 
             return [
                 'isCricket' => true,
@@ -126,6 +158,8 @@ class MatchDetails extends Component
                 'partnerships' => (array) ($meta['partnerships'] ?? []),
                 'battingStats' => $scorecardStats['batters'],
                 'bowlingStats' => $scorecardStats['bowlers'],
+                'heroTeams' => $heroTeams,
+                'recentOvers' => $this->buildRecentOversSummary((array) ($meta['ball_history'] ?? []), $currentInnings),
                 'resultText' => $fixture->result_text,
                 'progressNote' => $fixture->notes,
             ];
@@ -268,5 +302,60 @@ class MatchDetails extends Component
             'batters' => array_values($batters),
             'bowlers' => array_values($bowlers),
         ];
+    }
+
+    private function buildRecentOversSummary(array $ballHistory, int $innings): array
+    {
+        $balls = collect(array_reverse($ballHistory))
+            ->filter(fn (array $b): bool => (int) ($b['inning'] ?? 0) === $innings)
+            ->values();
+
+        if ($balls->isEmpty()) {
+            return [];
+        }
+
+        $latestOver = (int) $balls
+            ->map(fn (array $b): int => (int) (($b['before']['overs'] ?? 0)))
+            ->max();
+
+        $previousOver = max(0, $latestOver - 1);
+        $overNumbers = collect([$latestOver, $previousOver])->unique()->values();
+
+        return $overNumbers->map(function (int $overNo) use ($balls): array {
+            $overBalls = $balls
+                ->filter(fn (array $b): bool => (int) (($b['before']['overs'] ?? 0)) === $overNo)
+                ->values();
+
+            $mapped = $overBalls->map(function (array $b): array {
+                $isWicket = (bool) ($b['is_wicket'] ?? false);
+                if ($isWicket) {
+                    return ['text' => 'W', 'type' => 'wicket'];
+                }
+
+                $extraType = (string) ($b['extra_type'] ?? 'none');
+                if ($extraType === 'wide') {
+                    return ['text' => 'Wd', 'type' => 'extra'];
+                }
+                if ($extraType === 'no_ball') {
+                    return ['text' => 'Nb', 'type' => 'extra'];
+                }
+
+                $runs = (int) ($b['runs_off_bat'] ?? 0) + (int) ($b['extra_runs'] ?? 0);
+                if ($runs === 0) {
+                    return ['text' => '.', 'type' => 'dot'];
+                }
+
+                if ($runs === 4 || $runs === 6) {
+                    return ['text' => (string) $runs, 'type' => 'boundary'];
+                }
+
+                return ['text' => (string) $runs, 'type' => 'run'];
+            })->values()->all();
+
+            return [
+                'label' => 'OV '.($overNo + 1),
+                'balls' => $mapped,
+            ];
+        })->filter(fn (array $row): bool => ! empty($row['balls']))->values()->all();
     }
 }

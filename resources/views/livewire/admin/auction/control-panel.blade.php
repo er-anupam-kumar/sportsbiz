@@ -140,6 +140,7 @@
             <span class="text-xs px-2 py-1 rounded bg-emerald-50 border border-emerald-100 text-emerald-700">Available: <span class="font-semibold">{{ $availableCount }}</span></span>
             <span class="text-xs px-2 py-1 rounded bg-amber-50 border border-amber-100 text-amber-700">Unsold: <span class="font-semibold">{{ $unsoldCount }}</span></span>
             <span class="text-xs px-2 py-1 rounded bg-slate-100 border border-slate-200 text-slate-700">{{ $auction?->is_paused ? 'PAUSED' : 'LIVE' }}</span>
+            <span class="text-xs px-2 py-1 rounded {{ ($auction?->is_completed ?? false) ? 'bg-rose-100 border border-rose-200 text-rose-700' : 'bg-indigo-50 border border-indigo-100 text-indigo-700' }}">{{ ($auction?->is_completed ?? false) ? 'AUCTION COMPLETED' : 'AUCTION OPEN' }}</span>
 
             <button
                 type="button"
@@ -263,6 +264,14 @@
                     <span wire:loading.remove wire:target="shufflePlayers">Shuffle Players</span>
                 </span>
             </button>
+        </div>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+            @if($auction?->is_completed)
+                <button wire:click="reopenAuctionCompletion" class="h-9 px-3 text-sm rounded-lg border border-indigo-300 bg-indigo-50 text-indigo-700 font-semibold">Reopen Auction</button>
+                <span class="text-xs text-slate-600">Completed at: {{ optional($auction?->completed_at)->format('d M Y, h:i A') ?: '-' }}</span>
+            @else
+                <button wire:click="markAuctionCompleted" class="h-9 px-3 text-sm rounded-lg border border-rose-300 bg-rose-50 text-rose-700 font-semibold">Mark Auction Finished</button>
+            @endif
         </div>
         @if($startMode === 'auto')
             <div class="mt-2 flex items-center justify-between gap-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/80 px-3 py-2.5">

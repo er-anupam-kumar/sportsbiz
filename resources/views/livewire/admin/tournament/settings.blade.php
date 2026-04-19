@@ -6,6 +6,29 @@
             <a href="{{ route('admin.tournaments.create') }}" class="px-3 py-2 border border-red-200 rounded-lg text-red-700 text-sm">Create New</a>
         </div>
     </div>
+
+    <div class="grid md:grid-cols-2 gap-3">
+        <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <div class="text-xs uppercase tracking-wide text-slate-500">Tournament Status</div>
+            <div class="mt-2 inline-flex items-center px-2.5 py-1 rounded-full border bg-indigo-100 text-indigo-700 border-indigo-200 text-sm font-semibold">
+                {{ strtoupper((string) ($tournament->status ?? 'draft')) }}
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-3">
+            <div class="flex items-center justify-between gap-2">
+                <div class="text-xs uppercase tracking-wide text-slate-500">Auction Status</div>
+                <a href="{{ route('admin.auction.control', $tournament->id) }}" class="text-xs px-2 py-1 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 transition">Open Auction Control</a>
+            </div>
+            <div class="mt-2 inline-flex items-center px-2.5 py-1 rounded-full border text-sm font-semibold {{ $auctionStatus['tone'] }}">
+                {{ strtoupper((string) ($auctionStatus['label'] ?? 'Not Started')) }}
+            </div>
+            @if(!empty($auctionStatus['completed_at']))
+                <div class="mt-2 text-xs text-slate-600">Completed At: {{ optional($auctionStatus['completed_at'])->format('d M Y, h:i A') }}</div>
+            @endif
+        </div>
+    </div>
+
     <div class="grid md:grid-cols-2 gap-3 sb-card p-4">
         <div>
             <label class="block text-sm font-medium mb-1">Sport</label>
@@ -75,6 +98,7 @@
                 <option value="paused">Paused</option>
                 <option value="completed">Completed</option>
             </select>
+            <p class="text-xs text-slate-500 mt-1">This controls tournament lifecycle only. Auction completion is managed separately from Auction Control.</p>
             @error('status') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
         </div>
         <label class="flex items-center gap-2 text-sm font-medium pt-7"><input type="checkbox" wire:model="antiSniping"> Anti-sniping</label>

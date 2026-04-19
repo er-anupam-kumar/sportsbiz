@@ -1,35 +1,161 @@
-<div class="min-h-screen sb-shell-bg p-4 md:p-6 space-y-4">
+<style>
+    @keyframes sbTickerSlide {
+        0% { transform: translateX(0); }
+        50% { transform: translateX(8px); }
+        100% { transform: translateX(0); }
+    }
+    @keyframes sbCardFadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .sb-ticker-text {
+        display: inline-block;
+        animation: sbTickerSlide 6s ease-in-out infinite;
+        white-space: nowrap;
+    }
+    .sb-over-scroll {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .sb-over-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    .sb-card-enter {
+        opacity: 0;
+        animation: sbCardFadeUp 0.5s ease-out forwards;
+    }
+    .sb-card-enter:nth-child(1) { animation-delay: 0.04s; }
+    .sb-card-enter:nth-child(2) { animation-delay: 0.08s; }
+    .sb-card-enter:nth-child(3) { animation-delay: 0.12s; }
+    .sb-card-enter:nth-child(4) { animation-delay: 0.16s; }
+    .sb-card-enter:nth-child(5) { animation-delay: 0.20s; }
+    .sb-card-enter:nth-child(6) { animation-delay: 0.24s; }
+    .sb-card-enter:nth-child(7) { animation-delay: 0.28s; }
+    .sb-card-enter:nth-child(8) { animation-delay: 0.32s; }
+    .sb-card-enter:nth-child(9) { animation-delay: 0.36s; }
+    .sb-card-enter:nth-child(10) { animation-delay: 0.40s; }
+    @media (prefers-reduced-motion: reduce) {
+        .sb-ticker-text,
+        .sb-card-enter {
+            animation: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+        }
+    }
+</style>
+
+<div class="min-h-screen sb-shell-bg p-4 md:p-6 space-y-4" x-data="{ tab: 'score' }">
     <div class="flex flex-wrap items-end justify-between gap-2">
-        <div>
-            <p class="text-xs uppercase tracking-wide text-slate-500">{{ $tournament->name }}</p>
-            <h1 class="text-2xl md:text-3xl font-black text-slate-900">{{ $fixture->display_label }}</h1>
-            <p class="text-sm text-slate-600">Public match details</p>
+        <div class="space-y-1">
+            <div class="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-800">
+                {{ $tournament->name }}
+            </div>
+            <h1 class="text-3xl md:text-4xl font-black leading-tight text-slate-900">{{ $fixture->display_label }}</h1>
+            <p class="text-sm md:text-base text-slate-600">Live score, progression mapping, and squad details.</p>
         </div>
-        <a href="{{ route('public.tournaments.show', $tournament->id) }}" class="px-3 py-2 border border-slate-300 rounded-lg text-slate-700 text-sm">Back to Fixtures</a>
+        <a href="{{ route('public.tournaments.show', $tournament->id) }}" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">Back to Fixtures</a>
     </div>
 
     <div class="sb-card p-2 bg-white border border-slate-200 shadow-sm">
         <img src="{{ $tournament->banner_url }}" alt="{{ $tournament->name }} banner" class="w-full h-32 md:h-40 rounded-lg object-cover border border-slate-200">
     </div>
 
-    <div class="sb-card p-3 bg-gradient-to-r from-sky-100 to-indigo-100 border border-sky-200 shadow-sm space-y-2">
-        <div class="text-xs font-semibold uppercase tracking-wide text-sky-900">Match Overview</div>
-        <div class="grid md:grid-cols-2 gap-2 text-xs">
-            <div class="rounded-md border border-white/80 bg-white px-2 py-1.5 flex items-center gap-2">
-                <img src="{{ $fixture->homeTeam?->logo_url ?? asset('images/team-placeholder.svg') }}" alt="{{ $fixture->home_display_name }}" class="h-6 w-6 rounded-full object-cover border border-slate-200">
-                <div><span class="text-slate-600">Home:</span> <span class="font-semibold text-slate-900">{{ $fixture->home_display_name }}</span></div>
-            </div>
-            <div class="rounded-md border border-white/80 bg-white px-2 py-1.5 flex items-center gap-2">
-                <img src="{{ $fixture->awayTeam?->logo_url ?? asset('images/team-placeholder.svg') }}" alt="{{ $fixture->away_display_name }}" class="h-6 w-6 rounded-full object-cover border border-slate-200">
-                <div><span class="text-slate-600">Away:</span> <span class="font-semibold text-slate-900">{{ $fixture->away_display_name }}</span></div>
-            </div>
-            <div class="rounded-md border border-white/80 bg-white px-2 py-1.5"><span class="text-slate-600">Date/Time:</span> <span class="font-semibold text-slate-900">{{ optional($fixture->match_at)->format('d M Y, h:i A') ?: '-' }}</span></div>
-            <div class="rounded-md border border-white/80 bg-white px-2 py-1.5"><span class="text-slate-600">Venue:</span> <span class="font-semibold text-slate-900">{{ $fixture->venue ?: '-' }}</span></div>
-            <div class="rounded-md border border-white/80 bg-white px-2 py-1.5 md:col-span-2"><span class="text-slate-600">Status:</span> <span class="font-semibold text-slate-900">{{ strtoupper($fixture->status) }}</span></div>
+    <div class="relative rounded-2xl border border-indigo-900/40 bg-gradient-to-br from-indigo-950 via-blue-900 to-indigo-900 shadow-xl overflow-hidden">
+        <div class="absolute left-0 top-0 h-full w-28 md:w-40 pointer-events-none opacity-50">
+            <div class="absolute left-2 top-8 h-20 w-20 rounded-full border-8 border-amber-300/60"></div>
+            <div class="absolute left-12 top-24 h-16 w-16 rounded-full border-8 border-amber-200/50"></div>
+            <div class="absolute left-1 bottom-10 h-14 w-14 rounded-full border-8 border-emerald-300/45"></div>
         </div>
+        <div class="absolute right-0 top-0 h-full w-28 md:w-40 pointer-events-none opacity-50">
+            <div class="absolute right-3 top-10 h-20 w-20 rounded-full border-8 border-orange-300/60"></div>
+            <div class="absolute right-12 top-24 h-14 w-14 rounded-full border-8 border-orange-200/50"></div>
+            <div class="absolute right-1 bottom-12 h-16 w-16 rounded-full border-8 border-pink-300/45"></div>
+        </div>
+
+        @if($scoreboard['isCricket'] && !empty($scoreboard['heroTeams']))
+            <div class="relative z-10 px-4 py-5 md:px-6 md:py-7 text-white space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-5">
+                    <div class="flex items-center justify-between md:justify-start gap-3 min-w-0">
+                        <img src="{{ $scoreboard['heroTeams'][0]['logo'] }}" alt="{{ $scoreboard['heroTeams'][0]['name'] }}" class="h-12 w-12 md:h-16 md:w-16 rounded-full border-2 border-white/50 object-cover bg-white/90 p-1">
+                        <div class="min-w-0">
+                            <div class="text-lg sm:text-2xl md:text-5xl font-black leading-none">{{ $scoreboard['heroTeams'][0]['score'] }}</div>
+                            <div class="text-xs sm:text-sm md:text-base text-blue-100">{{ $scoreboard['heroTeams'][0]['overs'] }}</div>
+                            <div class="text-[11px] md:text-xs uppercase tracking-wide text-blue-200 truncate">{{ $scoreboard['heroTeams'][0]['name'] }}</div>
+                        </div>
+                    </div>
+
+                    <div class="justify-self-center px-3 py-1 rounded-md bg-white text-indigo-900 text-[11px] md:text-xs font-extrabold uppercase tracking-wide border border-indigo-200">
+                        {{ $fixture->display_label }}
+                    </div>
+
+                    <div class="flex items-center justify-between md:justify-end gap-3 min-w-0 text-right">
+                        <div class="min-w-0">
+                            <div class="text-lg sm:text-2xl md:text-5xl font-black leading-none">{{ $scoreboard['heroTeams'][1]['score'] }}</div>
+                            <div class="text-xs sm:text-sm md:text-base text-blue-100">{{ $scoreboard['heroTeams'][1]['overs'] }}</div>
+                            <div class="text-[11px] md:text-xs uppercase tracking-wide text-blue-200 truncate">{{ $scoreboard['heroTeams'][1]['name'] }}</div>
+                        </div>
+                        <img src="{{ $scoreboard['heroTeams'][1]['logo'] }}" alt="{{ $scoreboard['heroTeams'][1]['name'] }}" class="h-12 w-12 md:h-16 md:w-16 rounded-full border-2 border-white/50 object-cover bg-white/90 p-1">
+                    </div>
+                </div>
+
+                <div class="text-center text-[11px] md:text-sm text-blue-100">
+                    {{ $fixture->venue ?: 'Venue TBD' }}
+                    <span class="mx-1">•</span>
+                    {{ optional($fixture->match_at)->format('d M Y') ?: '-' }}
+                    <span class="mx-1">•</span>
+                    {{ optional($fixture->match_at)->format('h:i A') ?: '-' }}
+                </div>
+
+                @if(!empty($scoreboard['recentOvers']))
+                    <div class="space-y-2">
+                        @foreach($scoreboard['recentOvers'] as $overRow)
+                            <div class="sb-over-scroll overflow-x-auto">
+                                <div class="inline-flex items-center gap-2 text-xs min-w-max px-0.5">
+                                    <span class="text-blue-200 font-semibold">{{ $overRow['label'] }}</span>
+                                    @foreach($overRow['balls'] as $ball)
+                                        <span class="h-7 min-w-7 px-1 rounded-full inline-flex items-center justify-center border text-[11px] font-bold
+                                            {{ $ball['type'] === 'wicket' ? 'bg-rose-600 border-rose-300 text-white' : '' }}
+                                            {{ $ball['type'] === 'boundary' ? 'bg-emerald-600 border-emerald-300 text-white' : '' }}
+                                            {{ $ball['type'] === 'extra' ? 'bg-amber-500 border-amber-300 text-slate-900' : '' }}
+                                            {{ in_array($ball['type'], ['run','dot'], true) ? 'bg-transparent border-blue-300 text-blue-50' : '' }}">
+                                            {{ $ball['text'] }}
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
+            @if(!empty($scoreboard['resultText']))
+                <div class="bg-blue-700/80 text-white text-center py-2.5 px-3 text-sm md:text-base font-semibold border-t border-white/20 overflow-hidden">
+                    <span class="sb-ticker-text">{{ $scoreboard['resultText'] }}</span>
+                </div>
+            @endif
+        @else
+            <div class="px-4 py-5 md:px-6 md:py-7 text-white space-y-2">
+                <div class="text-xs uppercase tracking-wide text-blue-200">Match Overview</div>
+                <div class="text-xl md:text-2xl font-black">{{ $fixture->home_display_name }} vs {{ $fixture->away_display_name }}</div>
+                <div class="text-sm text-blue-100">{{ $fixture->venue ?: 'Venue TBD' }} • {{ optional($fixture->match_at)->format('d M Y, h:i A') ?: '-' }}</div>
+                <div class="text-sm text-blue-100">Status: {{ strtoupper($fixture->status) }}</div>
+            </div>
+        @endif
     </div>
 
-    <div class="sb-card p-3 bg-emerald-50 border border-emerald-200 shadow-sm space-y-2">
+    <div class="rounded-xl border border-slate-200 bg-white p-1.5 inline-flex flex-wrap gap-1 shadow-sm">
+        <button @click="tab='score'" :class="tab==='score' ? 'bg-indigo-700 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Scorecard</button>
+        <button @click="tab='progression'" :class="tab==='progression' ? 'bg-indigo-700 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Progression</button>
+        <button @click="tab='squads'" :class="tab==='squads' ? 'bg-indigo-700 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100'" class="px-4 py-2 rounded-lg text-sm font-semibold transition">Teams</button>
+    </div>
+
+    <div class="sb-card p-3 bg-emerald-50 border border-emerald-200 shadow-sm space-y-2" x-show="tab === 'score'" x-cloak>
         <div class="text-xs font-semibold uppercase tracking-wide text-emerald-900">Current Score & Progress</div>
 
         @if($scoreboard['hasData'])
@@ -132,7 +258,26 @@
                 <div class="grid md:grid-cols-2 gap-2">
                     <div class="rounded-md border border-slate-200 bg-white px-2.5 py-2">
                         <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Batting Scorecard</div>
-                        <div class="overflow-x-auto">
+                        <div class="md:hidden space-y-2">
+                            @forelse(($scoreboard['battingStats'] ?? []) as $row)
+                                <div class="sb-card-enter rounded-xl border border-slate-300 bg-white shadow-sm px-2.5 py-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="text-xs font-bold text-slate-900 truncate">{{ $row['name'] }}</div>
+                                        <div class="text-[10px] px-2 py-0.5 rounded-full {{ $row['out'] ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200' }} font-semibold">{{ $row['out'] ? ($row['dismissal'] ?: 'OUT') : 'Not Out' }}</div>
+                                    </div>
+                                    <div class="mt-1.5 grid grid-cols-3 gap-1 text-[10px]">
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">R <span class="font-bold text-slate-900">{{ $row['runs'] }}</span></div>
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">B <span class="font-bold text-slate-900">{{ $row['balls'] }}</span></div>
+                                        <div class="rounded-md bg-indigo-50 border border-indigo-200 px-1.5 py-1 font-medium text-indigo-700">SR <span class="font-bold text-indigo-900">{{ number_format((float) $row['strike_rate'], 2) }}</span></div>
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">4s <span class="font-bold text-slate-900">{{ $row['fours'] }}</span></div>
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">6s <span class="font-bold text-slate-900">{{ $row['sixes'] }}</span></div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="py-2 text-xs text-slate-500">No batting stats yet.</div>
+                            @endforelse
+                        </div>
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="min-w-full text-xs">
                                 <thead>
                                     <tr class="text-left text-slate-500 border-b border-slate-200">
@@ -168,7 +313,26 @@
 
                     <div class="rounded-md border border-slate-200 bg-white px-2.5 py-2">
                         <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Bowling Scorecard</div>
-                        <div class="overflow-x-auto">
+                        <div class="md:hidden space-y-2">
+                            @forelse(($scoreboard['bowlingStats'] ?? []) as $row)
+                                <div class="sb-card-enter rounded-xl border border-slate-300 bg-white shadow-sm px-2.5 py-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="text-xs font-bold text-slate-900 truncate">{{ $row['name'] }}</div>
+                                        <div class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 font-semibold">Econ {{ number_format((float) $row['economy'], 2) }}</div>
+                                    </div>
+                                    <div class="mt-1.5 grid grid-cols-3 gap-1 text-[10px]">
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">O <span class="font-bold text-slate-900">{{ $row['overs'] }}</span></div>
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">R <span class="font-bold text-slate-900">{{ $row['runs'] }}</span></div>
+                                        <div class="rounded-md bg-emerald-50 border border-emerald-200 px-1.5 py-1 font-medium text-emerald-700">W <span class="font-bold text-emerald-900">{{ $row['wickets'] }}</span></div>
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">Wd <span class="font-bold text-slate-900">{{ $row['wides'] }}</span></div>
+                                        <div class="rounded-md bg-slate-100 border border-slate-200 px-1.5 py-1 font-medium text-slate-700">Nb <span class="font-bold text-slate-900">{{ $row['no_balls'] }}</span></div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="py-2 text-xs text-slate-500">No bowling stats yet.</div>
+                            @endforelse
+                        </div>
+                        <div class="hidden md:block overflow-x-auto">
                             <table class="min-w-full text-xs">
                                 <thead>
                                     <tr class="text-left text-slate-500 border-b border-slate-200">
@@ -228,7 +392,7 @@
         @endif
     </div>
 
-    <div class="sb-card p-3 bg-white border border-slate-200 shadow-sm space-y-3">
+    <div class="sb-card p-3 bg-white border border-slate-200 shadow-sm space-y-3" x-show="tab === 'progression'" x-cloak>
         @php
             $homeSourceType = strtoupper(str_replace('_', ' ', $fixture->home_source_type ?? 'team'));
             $awaySourceType = strtoupper(str_replace('_', ' ', $fixture->away_source_type ?? 'team'));
@@ -268,7 +432,7 @@
         </div>
     </div>
 
-    <div class="space-y-3">
+    <div class="space-y-3" x-show="tab === 'squads'" x-cloak>
         @php($compactLimit = 6)
         <h2 class="text-lg md:text-xl font-black text-slate-900">Squads</h2>
         <div class="grid md:grid-cols-2 gap-5">

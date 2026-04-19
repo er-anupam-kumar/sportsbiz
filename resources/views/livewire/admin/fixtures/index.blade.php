@@ -31,7 +31,10 @@
                         <td class="sb-table-cell">{{ $tournament->live_count }}</td>
                         <td class="sb-table-cell">{{ $tournament->completed_count }}</td>
                         <td class="sb-table-cell">
-                            <a href="{{ route('admin.fixtures.manage', $tournament->id) }}" class="sb-action-chip border-indigo-200 text-indigo-700">View / Create Fixture</a>
+                            <div class="flex flex-wrap gap-2">
+                                <a href="{{ route('admin.fixtures.manage', $tournament->id) }}" class="sb-action-chip border-indigo-200 text-indigo-700">View / Create Fixture</a>
+                                <a href="{{ route('admin.fixtures.points-table', $tournament->id) }}" class="sb-action-chip border-emerald-200 text-emerald-700">Points Table</a>
+                            </div>
                         </td>
                     </tr>
                 @empty

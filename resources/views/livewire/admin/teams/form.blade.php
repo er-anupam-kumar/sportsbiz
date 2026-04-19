@@ -75,6 +75,26 @@
                 <input type="color" wire:model="secondaryColor" class="h-10 w-full border border-slate-300 rounded-lg px-2 py-1">
                 @error('secondaryColor') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
             </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Captain</label>
+                <select wire:model="captainPlayerId" class="sb-input" @disabled(!$editingId)>
+                    <option value="0">{{ $editingId ? 'Select Captain' : 'Save team first' }}</option>
+                    @foreach($squadPlayersForRoleSelection as $player)
+                        <option value="{{ $player->id }}">{{ $player->name }}</option>
+                    @endforeach
+                </select>
+                @error('captainPlayerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium mb-1">Wicketkeeper</label>
+                <select wire:model="wicketkeeperPlayerId" class="sb-input" @disabled(!$editingId)>
+                    <option value="0">{{ $editingId ? 'Select Wicketkeeper' : 'Save team first' }}</option>
+                    @foreach($squadPlayersForRoleSelection as $player)
+                        <option value="{{ $player->id }}">{{ $player->name }}</option>
+                    @endforeach
+                </select>
+                @error('wicketkeeperPlayerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+            </div>
             <label class="flex items-center gap-2 text-sm font-medium pt-7"><input type="checkbox" wire:model="isLocked"> Lock team bidding</label>
         </div>
 

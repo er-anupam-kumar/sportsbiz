@@ -84,6 +84,11 @@ class Tournament extends Model
         return $this->hasOne(Auction::class);
     }
 
+    public function pointsTable(): HasMany
+    {
+        return $this->hasMany(TournamentPointTable::class);
+    }
+
     public function getBannerUrlAttribute(): string
     {
         if (! $this->banner_path) {

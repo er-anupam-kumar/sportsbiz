@@ -114,6 +114,7 @@
                             @php
                                 $isRunning = in_array($tournament->id, $runningTournamentIds ?? [], true);
                                 $auctionStarted = (bool) ($tournament->auction?->current_player_id);
+                                $auctionCompleted = (bool) ($tournament->auction?->is_completed);
                             @endphp
                             <article class="sb-card p-4 bg-white border border-slate-200 shadow-sm space-y-3">
                                 <img src="{{ $tournament->banner_url }}" alt="{{ $tournament->name }} banner" class="w-full h-28 rounded-lg object-cover border border-slate-200">
@@ -141,10 +142,14 @@
 
                                 <div class="flex items-center gap-2">
                                     <a href="{{ route('public.tournaments.show', $tournament->id) }}" class="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-semibold hover:bg-indigo-100 transition">View Fixtures</a>
-                                    <a href="{{ route('public.auction-viewer', $tournament->id) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white text-sm font-semibold sb-btn-primary shadow">
-                                        <i data-lucide="external-link" class="w-4 h-4"></i>
-                                        Open Auction
-                                    </a>
+                                    @if(!$auctionCompleted)
+                                        <a href="{{ route('public.auction-viewer', $tournament->id) }}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-white text-sm font-semibold sb-btn-primary shadow">
+                                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                                            Open Auction
+                                        </a>
+                                    @else
+                                        <span class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-500 text-sm font-semibold">Auction Closed</span>
+                                    @endif
                                 </div>
                             </article>
                         @endforeach

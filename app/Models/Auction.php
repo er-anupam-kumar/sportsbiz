@@ -17,9 +17,11 @@ class Auction extends Model
         'current_highest_team_id',
         'current_bid',
         'is_paused',
+        'is_completed',
         'started_at',
         'ends_at',
         'last_bid_at',
+        'completed_at',
     ];
 
     protected function casts(): array
@@ -27,9 +29,11 @@ class Auction extends Model
         return [
             'current_bid' => 'decimal:2',
             'is_paused' => 'boolean',
+            'is_completed' => 'boolean',
             'started_at' => 'datetime',
             'ends_at' => 'datetime',
             'last_bid_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 

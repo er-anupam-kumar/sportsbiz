@@ -151,6 +151,7 @@
         </div>
     </div>
 
+    @if(!($auction?->is_completed ?? false))
     <div class="sb-shiny-box {{ $compactMode ? 'p-2.5 lg:p-3' : 'p-3 lg:p-4' }} {{ $darkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : '' }} {{ $compactMode ? 'space-y-2.5' : 'space-y-3' }} relative overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow">
@@ -199,6 +200,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     <div class="grid {{ $projectorMode ? 'lg:grid-cols-2 gap-2.5' : 'md:grid-cols-2 gap-2.5' }}">
         <div class="rounded-2xl {{ $compactMode ? 'p-2.5' : 'p-3' }} {{ $darkMode ? 'bg-slate-900 border border-slate-700' : 'sb-card' }}">

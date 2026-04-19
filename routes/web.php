@@ -10,6 +10,7 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Admin\Auction\ControlPanel;
 use App\Livewire\Admin\Fixtures\Index as FixturesIndex;
+use App\Livewire\Admin\Fixtures\PointsTable as FixturesPointsTable;
 use App\Livewire\Admin\Fixtures\Scorer as FixturesScorer;
 use App\Livewire\Admin\Fixtures\TournamentManager as FixturesTournamentManager;
 use App\Livewire\Admin\Jersey\Requirements as AdminJerseyRequirements;
@@ -47,7 +48,7 @@ Route::get('/', function () {
     $tournaments = Tournament::query()
         ->with([
             'sport:id,name',
-            'auction:id,tournament_id,current_player_id,is_paused,ends_at',
+            'auction:id,tournament_id,current_player_id,is_paused,is_completed,ends_at',
         ])
         ->orderByDesc('starts_at')
         ->orderByDesc('id')
@@ -63,6 +64,7 @@ Route::get('/', function () {
     $runningTournamentIds = Auction::query()
         ->whereNotNull('current_player_id')
         ->where('is_paused', false)
+        ->where('is_completed', false)
         ->pluck('tournament_id')
         ->all();
 
@@ -112,6 +114,7 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::get('/categories', CategoriesManager::class)->name('categories');
         Route::get('/fixtures', FixturesIndex::class)->name('fixtures.index');
         Route::get('/fixtures/{tournament}', FixturesTournamentManager::class)->name('fixtures.manage');
+        Route::get('/fixtures/{tournament}/points-table', FixturesPointsTable::class)->name('fixtures.points-table');
         Route::get('/fixtures/{fixture}/scorer', FixturesScorer::class)->name('fixtures.scorer');
         Route::get('/auction/{tournament}', ControlPanel::class)->name('auction.control');
         Route::get('/reports', AdminReports::class)->name('reports');

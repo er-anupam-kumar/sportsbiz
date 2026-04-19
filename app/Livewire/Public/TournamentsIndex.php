@@ -14,6 +14,7 @@ class TournamentsIndex extends Component
             ->with(['sport:id,name'])
             ->withCount([
                 'fixtures as fixtures_count',
+                'fixtures as scheduled_fixtures_count' => fn ($query) => $query->where('status', 'scheduled'),
                 'fixtures as live_fixtures_count' => fn ($query) => $query->where('status', 'live'),
                 'fixtures as completed_fixtures_count' => fn ($query) => $query->where('status', 'completed'),
             ])

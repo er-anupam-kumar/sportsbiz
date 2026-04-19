@@ -20,6 +20,8 @@ class Team extends Model
         'jersey_image_path',
         'primary_color',
         'secondary_color',
+        'captain_player_id',
+        'wicketkeeper_player_id',
         'wallet_balance',
         'squad_count',
         'is_locked',
@@ -61,6 +63,21 @@ class Team extends Model
     public function soldPlayers(): HasMany
     {
         return $this->hasMany(Player::class, 'sold_team_id');
+    }
+
+    public function captain(): BelongsTo
+    {
+        return $this->belongsTo(Player::class, 'captain_player_id');
+    }
+
+    public function wicketkeeper(): BelongsTo
+    {
+        return $this->belongsTo(Player::class, 'wicketkeeper_player_id');
+    }
+
+    public function tournamentPoints(): HasMany
+    {
+        return $this->hasMany(TournamentPointTable::class, 'team_id');
     }
 
     public function homeFixtures(): HasMany

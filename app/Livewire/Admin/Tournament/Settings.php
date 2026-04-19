@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Tournament;
 
+use App\Models\Auction;
 use App\Models\Sport;
 use App\Models\Tournament;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -106,8 +107,41 @@ class Settings extends Component
 
     public function render()
     {
+        $auction = Auction::query()
+            ->where('tournament_id', (int) $this->tournament->id)
+            ->first(['id', 'current_player_id', 'is_paused', 'is_completed', 'completed_at']);
+
+        $auctionStatus = [
+            'label' => 'Not Started',
+            'tone' => 'bg-slate-100 text-slate-700 border-slate-200',
+            'completed_at' => null,
+        ];
+
+        if ($auction) {
+            if ((bool) $auction->is_completed) {
+                $auctionStatus = [
+                    'label' => 'Completed',
+                    'tone' => 'bg-rose-100 text-rose-700 border-rose-200',
+                    'completed_at' => $auction->completed_at,
+                ];
+            } elseif ($auction->current_player_id && ! $auction->is_paused) {
+                $auctionStatus = [
+                    'label' => 'Live',
+                    'tone' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                    'completed_at' => null,
+                ];
+            } elseif ($auction->current_player_id && $auction->is_paused) {
+                $auctionStatus = [
+                    'label' => 'Paused',
+                    'tone' => 'bg-amber-100 text-amber-700 border-amber-200',
+                    'completed_at' => null,
+                ];
+            }
+        }
+
         return view('livewire.admin.tournament.settings', [
             'sports' => Sport::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'auctionStatus' => $auctionStatus,
         ]);
     }
 }

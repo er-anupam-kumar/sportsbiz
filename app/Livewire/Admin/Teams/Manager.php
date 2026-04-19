@@ -36,6 +36,8 @@ class Manager extends Component
     public ?string $existingJerseyImagePath = null;
     public string $primaryColor = '';
     public string $secondaryColor = '';
+    public int $captainPlayerId = 0;
+    public int $wicketkeeperPlayerId = 0;
     public bool $showSquadModal = false;
     public string $squadTeamName = '';
     public array $squadPlayers = [];
@@ -96,7 +98,37 @@ class Manager extends Component
             'jerseyImage' => ['nullable', 'image', 'max:4096'],
             'primaryColor' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6})$/'],
             'secondaryColor' => ['nullable', 'regex:/^#([A-Fa-f0-9]{6})$/'],
+            'captainPlayerId' => ['nullable', 'integer', 'min:0'],
+            'wicketkeeperPlayerId' => ['nullable', 'integer', 'min:0', 'different:captainPlayerId'],
         ]);
+
+        if ($this->editingId) {
+            if ($this->captainPlayerId > 0) {
+                $captainValid = Player::query()
+                    ->whereKey($this->captainPlayerId)
+                    ->where('sold_team_id', (int) $this->editingId)
+                    ->where('tournament_id', (int) $this->formTournamentId)
+                    ->exists();
+
+                if (! $captainValid) {
+                    $this->addError('captainPlayerId', 'Captain must be selected from team squad players.');
+                    return;
+                }
+            }
+
+            if ($this->wicketkeeperPlayerId > 0) {
+                $keeperValid = Player::query()
+                    ->whereKey($this->wicketkeeperPlayerId)
+                    ->where('sold_team_id', (int) $this->editingId)
+                    ->where('tournament_id', (int) $this->formTournamentId)
+                    ->exists();
+
+                if (! $keeperValid) {
+                    $this->addError('wicketkeeperPlayerId', 'Wicketkeeper must be selected from team squad players.');
+                    return;
+                }
+            }
+        }
 
         if (! $this->editingId) {
             $limitMessage = AdminQuota::teamLimitMessage($adminId);
@@ -141,6 +173,8 @@ class Manager extends Component
             'name' => $this->name,
             'primary_color' => $this->primaryColor !== '' ? strtoupper($this->primaryColor) : null,
             'secondary_color' => $this->secondaryColor !== '' ? strtoupper($this->secondaryColor) : null,
+            'captain_player_id' => $this->captainPlayerId > 0 ? $this->captainPlayerId : null,
+            'wicketkeeper_player_id' => $this->wicketkeeperPlayerId > 0 ? $this->wicketkeeperPlayerId : null,
             'wallet_balance' => $this->walletBalance,
             'is_locked' => $this->isLocked,
         ];
@@ -197,6 +231,8 @@ class Manager extends Component
         $this->jerseyImage = null;
         $this->primaryColor = (string) ($team->primary_color ?? '');
         $this->secondaryColor = (string) ($team->secondary_color ?? '');
+        $this->captainPlayerId = (int) ($team->captain_player_id ?? 0);
+        $this->wicketkeeperPlayerId = (int) ($team->wicketkeeper_player_id ?? 0);
     }
 
     public function toggleLock(int $teamId): void
@@ -279,6 +315,8 @@ class Manager extends Component
             'existingJerseyImagePath',
             'primaryColor',
             'secondaryColor',
+            'captainPlayerId',
+            'wicketkeeperPlayerId',
         ]);
         $this->walletBalance = 0;
         $this->isLocked = false;
@@ -308,6 +346,13 @@ class Manager extends Component
                 ->with(['user:id,email', 'tournament:id,name'])
                 ->latest()
                 ->paginate(15),
+            'squadPlayersForRoleSelection' => $this->editingId
+                ? Player::query()
+                    ->where('sold_team_id', (int) $this->editingId)
+                    ->where('tournament_id', (int) $this->formTournamentId)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                : collect(),
         ]);
     }
 }

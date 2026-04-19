@@ -114,12 +114,15 @@
 
                 @php($battingTeamId = (int) ($innings[$currentInnings]['batting_team_id'] ?? 0))
 
+                @php($dismissedIds = collect($ballHistory)->where('inning', $currentInnings)->pluck('out_player_id')->filter()->map(fn($v) => (int) $v)->unique()->values()->all())
+                @php($availableBatters = ($playersByTeam[$battingTeamId] ?? collect())->reject(fn($p) => in_array((int) $p->id, $dismissedIds, true)))
+
                 <div class="grid md:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-medium mb-1">Who Got Out?</label>
                         <select wire:model="wicketOutPlayerId" class="sb-input">
                             <option value="0">Select Batter</option>
-                            @foreach(($playersByTeam[$battingTeamId] ?? collect()) as $player)
+                            @foreach($availableBatters as $player)
                                 <option value="{{ $player->id }}">{{ $player->name }}</option>
                             @endforeach
                         </select>
@@ -140,11 +143,60 @@
                         </select>
                         @error('wicketType') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
                     </div>
+
+                    @if(in_array($wicketType, ['caught','run_out','stumped']))
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium mb-1">Fielder / Keeper (Bowling Team)</label>
+                            <select wire:model="wicketFielderPlayerId" class="sb-input">
+                                <option value="0">Select Player</option>
+                                @foreach(($playersByTeam[$bowlingTeamId] ?? collect()) as $player)
+                                    <option value="{{ $player->id }}">{{ $player->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('wicketFielderPlayerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+
+                    @if($awaitingNextBatter)
+                        <div class="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                            <label class="block text-sm font-medium mb-1">Next Batter</label>
+                            <select wire:model="nextBatterPlayerId" class="sb-input">
+                                <option value="0">Select Next Batter</option>
+                                @foreach($availableBatters->reject(fn($p) => (int) $p->id === (int) $wicketOutPlayerId) as $player)
+                                    <option value="{{ $player->id }}">{{ $player->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('nextBatterPlayerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
                 </div>
 
                 <div class="flex justify-end gap-2">
                     <button wire:click="$set('showWicketModal', false)" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">Cancel</button>
-                    <button wire:click="confirmWicketEvent" class="px-4 py-2 sb-btn-primary">Confirm Wicket</button>
+                    <button wire:click="confirmWicketEvent" class="px-4 py-2 sb-btn-primary">{{ $awaitingNextBatter ? 'Confirm Wicket + Next Batter' : 'Continue' }}</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($showBowlerModal)
+        <div class="fixed inset-0 z-[235] bg-slate-900/60 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-bold text-slate-900">New Over - Select Bowler</h3>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Bowler</label>
+                    <select wire:model="bowlerPlayerId" class="sb-input">
+                        <option value="0">Select Bowler</option>
+                        @foreach(($playersByTeam[$bowlingTeamId] ?? collect()) as $player)
+                            <option value="{{ $player->id }}">{{ $player->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('bowlerPlayerId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button wire:click="confirmNextBowler" class="px-4 py-2 sb-btn-primary">Confirm Bowler</button>
                 </div>
             </div>
         </div>
@@ -176,7 +228,12 @@
     </div>
 
     @if($isCricket)
-        <fieldset {{ $fixture->status === 'completed' ? 'disabled' : '' }} class="sb-card p-3 space-y-3 disabled:opacity-70">
+        @if($fixture->status !== 'live')
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                Scoring controls are disabled until you click <span class="font-semibold">Go Live</span> and save lineup setup.
+            </div>
+        @endif
+        <fieldset {{ $fixture->status !== 'live' ? 'disabled' : '' }} class="sb-card p-3 space-y-3 disabled:opacity-70">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="sb-section-title">Cricket Scorer Panel</h2>
                 <div class="flex items-center gap-2">
@@ -185,46 +242,7 @@
                 </div>
             </div>
 
-            <div class="grid lg:grid-cols-2 gap-3">
-                @foreach([1,2] as $inning)
-                    <div class="rounded-xl border border-slate-200 p-2.5 space-y-1.5">
-                        <div class="text-sm font-semibold text-slate-800">Innings {{ $inning }}</div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Batting Team</label>
-                            <select wire:model="innings.{{ $inning }}.batting_team_id" class="sb-input">
-                                <option value="0">Select Team</option>
-                                @foreach($teams as $team)
-                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-medium mb-1">Runs</label>
-                                <input type="number" min="0" wire:model="innings.{{ $inning }}.runs" class="sb-input">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1">Wickets</label>
-                                <input type="number" min="0" max="10" wire:model="innings.{{ $inning }}.wickets" class="sb-input">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1">Overs</label>
-                                <input type="number" min="0" wire:model="innings.{{ $inning }}.overs" class="sb-input">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium mb-1">Balls</label>
-                                <input type="number" min="0" max="5" wire:model="innings.{{ $inning }}.balls" class="sb-input">
-                            </div>
-                            <div class="col-span-2">
-                                <label class="block text-xs font-medium mb-1">Extras</label>
-                                <input type="number" min="0" wire:model="innings.{{ $inning }}.extras" class="sb-input">
-                            </div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-
-            <div class="rounded-xl border border-indigo-200 bg-indigo-50 p-2.5 space-y-2">
+            <div class="rounded-xl border border-indigo-200 bg-indigo-50 p-2.5 space-y-2 order-first">
                 @php($ci = (array) ($innings[$currentInnings] ?? ['runs' => 0, 'wickets' => 0, 'overs' => 0, 'balls' => 0]))
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="text-sm font-semibold text-indigo-900">Live Ball Controls</div>
@@ -278,6 +296,45 @@
                 </div>
             </div>
 
+            <div class="grid lg:grid-cols-2 gap-3">
+                @foreach([1,2] as $inning)
+                    <div class="rounded-xl border border-slate-200 p-2.5 space-y-1.5">
+                        <div class="text-sm font-semibold text-slate-800">Innings {{ $inning }}</div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Batting Team</label>
+                            <select wire:model="innings.{{ $inning }}.batting_team_id" class="sb-input">
+                                <option value="0">Select Team</option>
+                                @foreach($teams->whereIn('id', [(int) $fixture->home_team_id, (int) $fixture->away_team_id]) as $team)
+                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Runs</label>
+                                <input type="number" min="0" wire:model="innings.{{ $inning }}.runs" class="sb-input">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Wickets</label>
+                                <input type="number" min="0" max="10" wire:model="innings.{{ $inning }}.wickets" class="sb-input">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Overs</label>
+                                <input type="number" min="0" wire:model="innings.{{ $inning }}.overs" class="sb-input">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium mb-1">Balls</label>
+                                <input type="number" min="0" max="5" wire:model="innings.{{ $inning }}.balls" class="sb-input">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-xs font-medium mb-1">Extras</label>
+                                <input type="number" min="0" wire:model="innings.{{ $inning }}.extras" class="sb-input">
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
             <div class="grid md:grid-cols-2 gap-2">
                 <div>
                     <label class="block text-sm font-medium mb-1">Striker</label>
@@ -318,6 +375,45 @@
                     <input wire:model="manualEvent" class="sb-input" placeholder="e.g. Strategic timeout taken">
                     <button wire:click="pushManualEvent" class="px-2.5 py-2 sb-btn-primary text-xs">Add Event</button>
                 </div>
+            </div>
+
+            <div class="grid md:grid-cols-4 gap-2">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Result Mode</label>
+                    <select wire:model="resultMode" class="sb-input">
+                        <option value="auto">Auto</option>
+                        <option value="manual_runs">Manual - By Runs</option>
+                        <option value="manual_wickets">Manual - By Wickets</option>
+                        <option value="tie_no_result">Tie / No Result</option>
+                    </select>
+                    @error('resultMode') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                </div>
+
+                @if(in_array($resultMode, ['manual_runs','manual_wickets']))
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Winner</label>
+                        <select wire:model="resultWinnerTeamId" class="sb-input">
+                            <option value="0">Select Winner</option>
+                            <option value="{{ (int) $fixture->home_team_id }}">{{ $fixture->home_display_name }}</option>
+                            <option value="{{ (int) $fixture->away_team_id }}">{{ $fixture->away_display_name }}</option>
+                        </select>
+                        @error('resultWinnerTeamId') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Margin ({{ $resultMode === 'manual_runs' ? 'Runs' : 'Wickets' }})</label>
+                        <input type="number" min="1" wire:model="resultMargin" class="sb-input" placeholder="e.g. 12">
+                        @error('resultMargin') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @elseif($resultMode === 'tie_no_result')
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Result Type</label>
+                        <select wire:model="resultSpecial" class="sb-input">
+                            <option value="tie">Tie</option>
+                            <option value="no_result">No Result</option>
+                        </select>
+                        @error('resultSpecial') <p class="text-xs text-red-600 mt-1">{{ $message }}</p> @enderror
+                    </div>
+                @endif
             </div>
 
             <div class="grid md:grid-cols-2 gap-2">
@@ -401,7 +497,7 @@
                                         <td class="py-1 pr-2">{{ $row['fours'] }}</td>
                                         <td class="py-1 pr-2">{{ $row['sixes'] }}</td>
                                         <td class="py-1 pr-2">{{ number_format((float) $row['strike_rate'], 2) }}</td>
-                                        <td class="py-1">{{ $row['out'] ? ($row['dismissal'] ?: 'OUT') : 'Not Out' }}</td>
+                                        <td class="py-1">{{ $row['out'] ? ($row['dismissal'] ?: 'OUT') : (($row['dnb'] ?? false) ? 'DNB' : 'Not Out') }}</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -473,6 +569,41 @@
             <div>
                 <label class="block text-sm font-medium mb-1">Result Text</label>
                 <input wire:model="resultText" class="sb-input" placeholder="e.g. Team A won 84-76">
+            </div>
+
+            <div class="grid md:grid-cols-4 gap-2">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Result Mode</label>
+                    <select wire:model="resultMode" class="sb-input">
+                        <option value="auto">Auto</option>
+                        <option value="manual_runs">Manual - By Points/Runs</option>
+                        <option value="manual_wickets">Manual - By Wickets</option>
+                        <option value="tie_no_result">Tie / No Result</option>
+                    </select>
+                </div>
+
+                @if(in_array($resultMode, ['manual_runs','manual_wickets']))
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Winner</label>
+                        <select wire:model="resultWinnerTeamId" class="sb-input">
+                            <option value="0">Select Winner</option>
+                            <option value="{{ (int) $fixture->home_team_id }}">{{ $fixture->home_display_name }}</option>
+                            <option value="{{ (int) $fixture->away_team_id }}">{{ $fixture->away_display_name }}</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Margin</label>
+                        <input type="number" min="1" wire:model="resultMargin" class="sb-input" placeholder="e.g. 8">
+                    </div>
+                @elseif($resultMode === 'tie_no_result')
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Result Type</label>
+                        <select wire:model="resultSpecial" class="sb-input">
+                            <option value="tie">Tie</option>
+                            <option value="no_result">No Result</option>
+                        </select>
+                    </div>
+                @endif
             </div>
 
             <div>

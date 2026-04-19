@@ -402,6 +402,11 @@ class ControlPanel extends Component
             ['current_bid' => 0]
         );
 
+        if ((bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is marked completed. Reopen it before starting again.');
+            return;
+        }
+
         // If auction is paused with a live player, treat Start as Resume and preserve remaining time.
         if ($auction->is_paused && $auction->current_player_id) {
             $pausedRemaining = 0;
@@ -467,6 +472,11 @@ class ControlPanel extends Component
         }
 
         $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
+
+        if ($auction && (bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it to place bids.');
+            return;
+        }
 
         if (! $auction || ! $auction->current_player_id) {
             $this->dispatch('toast', message: 'No active player to place bid on.');
@@ -556,6 +566,11 @@ class ControlPanel extends Component
             ['current_bid' => 0]
         );
 
+        if ((bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it before bringing players live.');
+            return;
+        }
+
         $auction->update([
             'current_player_id' => $player->id,
             'current_highest_team_id' => null,
@@ -593,6 +608,12 @@ class ControlPanel extends Component
 
     public function pauseAuction(): void
     {
+        $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
+        if ($auction && (bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is already completed.');
+            return;
+        }
+
         Auction::query()->where('tournament_id', $this->tournament->id)->update(['is_paused' => true]);
         $this->safeBroadcast(new AuctionPaused($this->tournament->id, auth()->id()));
         $this->dispatch('toast', message: 'Auction paused.');
@@ -603,6 +624,11 @@ class ControlPanel extends Component
         $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
         if (! $auction) {
             $this->dispatch('toast', message: 'Auction is not initialized yet.');
+            return;
+        }
+
+        if ((bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it before resuming.');
             return;
         }
 
@@ -635,6 +661,11 @@ class ControlPanel extends Component
     public function extendTimer(int $seconds = 30): void
     {
         $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
+        if ($auction && (bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it before extending timer.');
+            return;
+        }
+
         if (! $auction || ! $auction->ends_at) {
             $this->dispatch('toast', message: 'Cannot extend timer before auction starts.');
             return;
@@ -650,6 +681,11 @@ class ControlPanel extends Component
         $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
         if (! $auction) {
             $this->dispatch('toast', message: 'Auction is not initialized yet.');
+            return;
+        }
+
+        if ((bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it before marking players.');
             return;
         }
 
@@ -737,6 +773,11 @@ class ControlPanel extends Component
             return;
         }
 
+        if ((bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it before marking players.');
+            return;
+        }
+
         $player = Player::query()->whereKey($auction->current_player_id)->first();
         if (! $player) {
             $this->dispatch('toast', message: 'Current player not found.');
@@ -772,6 +813,11 @@ class ControlPanel extends Component
             ['tournament_id' => $this->tournament->id],
             ['current_bid' => 0]
         );
+
+        if ((bool) ($auction->is_completed ?? false)) {
+            $this->dispatch('toast', message: 'Auction is completed. Reopen it before shuffling players.');
+            return;
+        }
 
         $nextPlayerId = Player::query()
             ->where('tournament_id', $this->tournament->id)
@@ -932,6 +978,44 @@ class ControlPanel extends Component
     private function shouldUseRandomAutoPick(): bool
     {
         return $this->startMode === 'auto' && $this->randomPickEnabled;
+    }
+
+    public function markAuctionCompleted(): void
+    {
+        $auction = Auction::query()->firstOrCreate(
+            ['tournament_id' => $this->tournament->id],
+            ['current_bid' => 0]
+        );
+
+        $auction->update([
+            'is_completed' => true,
+            'completed_at' => now(),
+            'is_paused' => true,
+            'current_player_id' => null,
+            'current_highest_team_id' => null,
+            'current_bid' => 0,
+            'last_bid_at' => null,
+            'ends_at' => null,
+        ]);
+
+        $this->selectedPlayerId = null;
+        $this->dispatch('toast', message: 'Auction marked completed. Tournament can continue independently.');
+    }
+
+    public function reopenAuctionCompletion(): void
+    {
+        $auction = Auction::query()->where('tournament_id', $this->tournament->id)->first();
+        if (! $auction) {
+            $this->dispatch('toast', message: 'Auction is not initialized yet.');
+            return;
+        }
+
+        $auction->update([
+            'is_completed' => false,
+            'completed_at' => null,
+        ]);
+
+        $this->dispatch('toast', message: 'Auction completion removed. You can continue auction operations.');
     }
 
     public function render()

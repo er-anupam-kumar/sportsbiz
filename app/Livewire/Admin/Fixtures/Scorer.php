@@ -19,6 +19,10 @@ class Scorer extends Component
     public int $awayPoints = 0;
     public string $resultText = '';
     public string $progressNote = '';
+    public string $resultMode = 'auto';
+    public int $resultWinnerTeamId = 0;
+    public int $resultMargin = 0;
+    public string $resultSpecial = 'tie';
 
     public int $currentInnings = 1;
     public array $innings = [];
@@ -48,6 +52,10 @@ class Scorer extends Component
     public bool $showWicketModal = false;
     public int $wicketOutPlayerId = 0;
     public string $wicketType = 'bowled';
+    public int $wicketFielderPlayerId = 0;
+    public int $nextBatterPlayerId = 0;
+    public bool $awaitingNextBatter = false;
+    public bool $showBowlerModal = false;
 
     private function scorerLocked(): bool
     {
@@ -61,6 +69,20 @@ class Scorer extends Component
         }
 
         $this->dispatch('toast', message: 'Scorer is locked for completed match. Change status to Live/Scheduled to edit.');
+
+        return true;
+    }
+
+    private function ensureCricketLiveScoring(): bool
+    {
+        if (! $this->isCricket) {
+            return true;
+        }
+
+        if ((string) $this->fixture->status !== 'live') {
+            $this->dispatch('toast', message: 'Please complete Go Live setup before scoring.');
+            return false;
+        }
 
         return true;
     }
@@ -155,6 +177,13 @@ class Scorer extends Component
         if ($this->bowlingTeamId <= 0 && $this->fixture->away_team_id) {
             $this->bowlingTeamId = (int) $this->fixture->away_team_id;
         }
+
+        $this->syncCurrentInningsTeams();
+    }
+
+    public function updatedCurrentInnings(): void
+    {
+        $this->syncCurrentInningsTeams();
     }
 
     public function updatedTossWinnerTeamId(): void
@@ -215,15 +244,12 @@ class Scorer extends Component
 
         $payload = ['status' => $status];
         if ($status === 'completed') {
-            $generated = $this->generateAutoResult();
-            if ($generated !== null) {
-                $payload['result_text'] = $generated;
-                $this->resultText = $generated;
-            }
-
-            $outcome = $this->resolveOutcomeTeamIds();
-            $payload['winner_team_id'] = $outcome['winner_team_id'];
-            $payload['loser_team_id'] = $outcome['loser_team_id'];
+            $this->validateResultControls();
+            $declared = $this->resolveDeclaredResult();
+            $payload['result_text'] = $declared['text'] ?: null;
+            $this->resultText = (string) ($declared['text'] ?? '');
+            $payload['winner_team_id'] = $declared['winner_team_id'];
+            $payload['loser_team_id'] = $declared['loser_team_id'];
         } else {
             $payload['winner_team_id'] = null;
             $payload['loser_team_id'] = null;
@@ -320,14 +346,30 @@ class Scorer extends Component
             return;
         }
 
+        if (! $this->ensureCricketLiveScoring()) {
+            return;
+        }
+
+        if ($this->showBowlerModal) {
+            $this->dispatch('toast', message: 'Please select a bowler for the new over first.');
+            return;
+        }
+
         $this->wicketOutPlayerId = 0;
         $this->wicketType = 'bowled';
+        $this->wicketFielderPlayerId = 0;
+        $this->nextBatterPlayerId = 0;
+        $this->awaitingNextBatter = false;
         $this->showWicketModal = true;
     }
 
     public function confirmWicketEvent(): void
     {
         if ($this->rejectIfLocked() || ! $this->isCricket) {
+            return;
+        }
+
+        if (! $this->ensureCricketLiveScoring()) {
             return;
         }
 
@@ -349,6 +391,60 @@ class Scorer extends Component
             return;
         }
 
+        if (in_array($this->wicketType, ['caught', 'run_out', 'stumped'], true)) {
+            $this->validate([
+                'wicketFielderPlayerId' => ['required', 'integer', 'min:1'],
+            ]);
+
+            $fielderExists = Player::query()
+                ->where('tournament_id', (int) $this->fixture->tournament_id)
+                ->where('sold_team_id', (int) $this->bowlingTeamId)
+                ->whereKey($this->wicketFielderPlayerId)
+                ->exists();
+
+            if (! $fielderExists) {
+                $this->addError('wicketFielderPlayerId', 'Selected fielder must belong to current bowling team.');
+                return;
+            }
+        }
+
+        if (! $this->awaitingNextBatter) {
+            $this->awaitingNextBatter = true;
+            return;
+        }
+
+        $dismissedIds = $this->dismissedPlayerIdsByInnings((int) $this->currentInnings);
+        $dismissedIds[] = $this->wicketOutPlayerId;
+        $dismissedIds = array_values(array_unique(array_map('intval', $dismissedIds)));
+
+        $this->validate([
+            'nextBatterPlayerId' => ['required', 'integer', 'min:1', 'different:wicketOutPlayerId'],
+        ]);
+
+        if (in_array((int) $this->nextBatterPlayerId, $dismissedIds, true)) {
+            $this->addError('nextBatterPlayerId', 'Selected batter is already out.');
+            return;
+        }
+
+        $nextExists = Player::query()
+            ->where('tournament_id', (int) $this->fixture->tournament_id)
+            ->where('sold_team_id', $battingTeamId)
+            ->whereKey($this->nextBatterPlayerId)
+            ->exists();
+
+        if (! $nextExists) {
+            $this->addError('nextBatterPlayerId', 'Next batter must belong to current batting team.');
+            return;
+        }
+
+        if ((int) $this->wicketOutPlayerId === (int) $this->strikerPlayerId) {
+            $this->strikerPlayerId = (int) $this->nextBatterPlayerId;
+            $this->striker = (string) ($this->playerNameById($this->strikerPlayerId) ?? '');
+        } else {
+            $this->nonStrikerPlayerId = (int) $this->nextBatterPlayerId;
+            $this->nonStriker = (string) ($this->playerNameById($this->nonStrikerPlayerId) ?? '');
+        }
+
         $this->registerDelivery(
             (int) $this->currentInnings,
             0,
@@ -357,11 +453,15 @@ class Scorer extends Component
             true,
             $this->wicketOutPlayerId,
             $this->wicketType,
+            $this->wicketFielderPlayerId > 0 ? (int) $this->wicketFielderPlayerId : null,
         );
 
         $this->showWicketModal = false;
         $this->wicketOutPlayerId = 0;
         $this->wicketType = 'bowled';
+        $this->wicketFielderPlayerId = 0;
+        $this->nextBatterPlayerId = 0;
+        $this->awaitingNextBatter = false;
     }
 
     public function confirmGoLiveSetup(): void
@@ -409,8 +509,8 @@ class Scorer extends Component
         $this->nonStriker = (string) ($this->playerNameById($this->nonStrikerPlayerId) ?? '');
         $this->bowler = (string) ($this->playerNameById($this->bowlerPlayerId) ?? '');
 
-        $this->saveCricket();
         $this->setMatchStatus('live');
+        $this->saveCricket();
         $this->showGoLiveModal = false;
     }
 
@@ -421,6 +521,129 @@ class Scorer extends Component
         }
 
         return Player::query()->whereKey($playerId)->value('name');
+    }
+
+    private function syncCurrentInningsTeams(): void
+    {
+        $homeId = (int) ($this->fixture->home_team_id ?? 0);
+        $awayId = (int) ($this->fixture->away_team_id ?? 0);
+
+        $battingTeamId = (int) ($this->innings[$this->currentInnings]['batting_team_id'] ?? 0);
+        if (! in_array($battingTeamId, [$homeId, $awayId], true)) {
+            $battingTeamId = $this->currentInnings === 1 ? $homeId : $awayId;
+            $this->innings[$this->currentInnings]['batting_team_id'] = $battingTeamId;
+        }
+
+        $this->battingTeamId = $battingTeamId;
+        $this->bowlingTeamId = $battingTeamId === $homeId ? $awayId : $homeId;
+
+        $isFromBattingTeam = static function (int $playerId, int $teamId): bool {
+            if ($playerId <= 0 || $teamId <= 0) {
+                return false;
+            }
+
+            return Player::query()->whereKey($playerId)->where('sold_team_id', $teamId)->exists();
+        };
+
+        if (! $isFromBattingTeam($this->strikerPlayerId, $this->battingTeamId)) {
+            $this->strikerPlayerId = 0;
+            $this->striker = '';
+        }
+
+        if (! $isFromBattingTeam($this->nonStrikerPlayerId, $this->battingTeamId)) {
+            $this->nonStrikerPlayerId = 0;
+            $this->nonStriker = '';
+        }
+
+        if (! $isFromBattingTeam($this->bowlerPlayerId, $this->bowlingTeamId)) {
+            $this->bowlerPlayerId = 0;
+            $this->bowler = '';
+        }
+    }
+
+    private function dismissedPlayerIdsByInnings(int $inningsKey): array
+    {
+        $dismissed = [];
+
+        foreach ((array) $this->ballHistory as $ball) {
+            if ((int) ($ball['inning'] ?? 0) !== $inningsKey) {
+                continue;
+            }
+
+            $outId = (int) ($ball['out_player_id'] ?? 0);
+            if ($outId > 0) {
+                $dismissed[$outId] = true;
+            }
+        }
+
+        return array_map('intval', array_keys($dismissed));
+    }
+
+    private function validateResultControls(): void
+    {
+        $homeId = (int) ($this->fixture->home_team_id ?? 0);
+        $awayId = (int) ($this->fixture->away_team_id ?? 0);
+
+        $this->validate([
+            'resultMode' => ['required', 'in:auto,manual_runs,manual_wickets,tie_no_result'],
+        ]);
+
+        if (in_array($this->resultMode, ['manual_runs', 'manual_wickets'], true)) {
+            $this->validate([
+                'resultWinnerTeamId' => ['required', 'integer', 'in:'.$homeId.','.$awayId],
+                'resultMargin' => ['required', 'integer', 'min:1'],
+            ]);
+        }
+
+        if ($this->resultMode === 'tie_no_result') {
+            $this->validate([
+                'resultSpecial' => ['required', 'in:tie,no_result'],
+            ]);
+        }
+    }
+
+    private function resolveDeclaredResult(?int $homePoints = null, ?int $awayPoints = null): array
+    {
+        if ($this->resultMode === 'auto') {
+            $outcome = $this->resolveOutcomeTeamIds($homePoints, $awayPoints);
+            $autoText = $this->generateAutoResult($homePoints, $awayPoints);
+
+            if ($outcome['winner_team_id'] === null && $outcome['loser_team_id'] === null && blank($autoText)) {
+                $autoText = 'No Result.';
+            }
+
+            return [
+                'text' => $autoText,
+                'winner_team_id' => $outcome['winner_team_id'],
+                'loser_team_id' => $outcome['loser_team_id'],
+            ];
+        }
+
+        if ($this->resultMode === 'tie_no_result') {
+            return [
+                'text' => $this->resultSpecial === 'no_result' ? 'No Result.' : 'Match tied.',
+                'winner_team_id' => null,
+                'loser_team_id' => null,
+            ];
+        }
+
+        $homeId = (int) ($this->fixture->home_team_id ?? 0);
+        $awayId = (int) ($this->fixture->away_team_id ?? 0);
+
+        $winnerId = (int) $this->resultWinnerTeamId;
+        $loserId = $winnerId === $homeId ? $awayId : ($winnerId === $awayId ? $homeId : 0);
+        $winnerName = $winnerId === $homeId
+            ? $this->fixture->home_display_name
+            : ($winnerId === $awayId ? $this->fixture->away_display_name : 'Team');
+
+        $unit = $this->resultMode === 'manual_runs' ? 'run' : 'wicket';
+        $margin = max(1, (int) $this->resultMargin);
+
+        return [
+            'text' => $winnerName.' won by '.$margin.' '.$unit.($margin > 1 ? 's' : '').'.',
+            'winner_team_id' => $winnerId > 0 ? $winnerId : null,
+            'loser_team_id' => $loserId > 0 ? $loserId : null,
+        ];
     }
 
     public function completeAndLock(): void
@@ -472,9 +695,14 @@ class Scorer extends Component
         $resultText = $this->resultText ?: null;
         $outcome = ['winner_team_id' => null, 'loser_team_id' => null];
         if ($this->fixture->status === 'completed') {
-            $resultText = $this->generateAutoResult($this->homePoints, $this->awayPoints) ?: $resultText;
+            $this->validateResultControls();
+            $declared = $this->resolveDeclaredResult($this->homePoints, $this->awayPoints);
+            $resultText = $declared['text'] ?: $resultText;
             $this->resultText = (string) ($resultText ?? '');
-            $outcome = $this->resolveOutcomeTeamIds($this->homePoints, $this->awayPoints);
+            $outcome = [
+                'winner_team_id' => $declared['winner_team_id'],
+                'loser_team_id' => $declared['loser_team_id'],
+            ];
         }
 
         $this->fixture->update([
@@ -502,6 +730,15 @@ class Scorer extends Component
             return;
         }
 
+        if (! $this->ensureCricketLiveScoring()) {
+            return;
+        }
+
+        if ($this->showBowlerModal) {
+            $this->dispatch('toast', message: 'Select the new bowler before adding next ball.');
+            return;
+        }
+
         $extraRuns = in_array($extraType, ['wide', 'no_ball'], true) ? 1 : 0;
         $this->registerDelivery((int) $this->currentInnings, max(0, $runs), $extraType, $extraRuns, $isWicket);
     }
@@ -513,6 +750,15 @@ class Scorer extends Component
         }
 
         if (! $this->isCricket) {
+            return;
+        }
+
+        if (! $this->ensureCricketLiveScoring()) {
+            return;
+        }
+
+        if ($this->showBowlerModal) {
+            $this->dispatch('toast', message: 'Select the new bowler before adding next ball.');
             return;
         }
 
@@ -547,6 +793,7 @@ class Scorer extends Component
         bool $isWicket,
         ?int $outPlayerId = null,
         ?string $wicketType = null,
+        ?int $fielderPlayerId = null,
     ): void
     {
         if ($inningsKey <= 0 || ! isset($this->innings[$inningsKey])) {
@@ -574,6 +821,8 @@ class Scorer extends Component
         $beforeNonStrikerPlayerId = $this->nonStrikerPlayerId;
         $beforeStriker = $this->striker;
         $beforeNonStriker = $this->nonStriker;
+        $beforeBowlerPlayerId = $this->bowlerPlayerId;
+        $beforeBowler = $this->bowler;
 
         $isExtra = $extraType !== 'none';
         $totalRuns = $runsOffBat + $extraRuns;
@@ -601,14 +850,32 @@ class Scorer extends Component
 
         $this->innings[$inningsKey] = $innings;
 
-        // Rotate strike when total runs taken from the ball are odd.
-        if (($totalRuns % 2) === 1) {
+        // Do not auto-rotate on wides/no-balls; rotate on legal/bye/leg-bye odd totals.
+        if (($totalRuns % 2) === 1 && ! in_array($extraType, ['wide', 'no_ball'], true)) {
             $this->swapStrikers();
+        }
+
+        $secondInningsFinished = false;
+        if ($inningsKey === 2) {
+            $in2Runs = (int) ($this->innings[2]['runs'] ?? 0);
+            $in2Wickets = (int) ($this->innings[2]['wickets'] ?? 0);
+            $firstInningsRuns = (int) ($this->innings[1]['runs'] ?? 0);
+            $target = (int) ($this->targetRuns ?: ($firstInningsRuns > 0 ? ($firstInningsRuns + 1) : 0));
+
+            $isAllOut = $in2Wickets >= 10;
+            $targetReached = $target > 0 && $in2Runs >= $target;
+
+            $secondInningsFinished = $isAllOut || $targetReached;
         }
 
         $overCompleted = $isLegalDelivery && ((int) ($before['balls'] ?? 0) === 5);
         if ($overCompleted) {
             $this->swapStrikers();
+            if (! $secondInningsFinished) {
+                $this->showBowlerModal = true;
+                $this->bowlerPlayerId = 0;
+                $this->bowler = '';
+            }
         }
 
         $parts = [];
@@ -621,7 +888,8 @@ class Scorer extends Component
         if ($isWicket) {
             $wType = strtoupper(str_replace('_', ' ', (string) ($wicketType ?: 'wicket')));
             $outName = $outPlayerId ? $this->playerNameById($outPlayerId) : null;
-            $parts[] = 'WICKET'.($outName ? ' - '.$outName : '').' ('.$wType.')';
+            $fielderName = $fielderPlayerId ? $this->playerNameById($fielderPlayerId) : null;
+            $parts[] = 'WICKET'.($outName ? ' - '.$outName : '').' ('.$wType.($fielderName ? ' by '.$fielderName : '').')';
         }
         if ($runsOffBat === 0 && $extraRuns === 0 && ! $isWicket) {
             $parts[] = 'DOT BALL';
@@ -647,38 +915,23 @@ class Scorer extends Component
             'before_non_striker_player_id' => $beforeNonStrikerPlayerId,
             'before_striker' => $beforeStriker,
             'before_non_striker' => $beforeNonStriker,
+            'before_bowler_player_id' => $beforeBowlerPlayerId,
+            'before_bowler' => $beforeBowler,
             'event_text' => $eventText,
             'runs_off_bat' => $runsOffBat,
             'extra_runs' => $extraRuns,
             'is_wicket' => $isWicket,
             'extra_type' => $extraType,
             'legal_ball' => $isLegalDelivery,
-            'striker_player_id' => $this->strikerPlayerId ?: null,
-            'non_striker_player_id' => $this->nonStrikerPlayerId ?: null,
-            'bowler_player_id' => $this->bowlerPlayerId ?: null,
+            'striker_player_id' => $beforeStrikerPlayerId ?: null,
+            'non_striker_player_id' => $beforeNonStrikerPlayerId ?: null,
+            'bowler_player_id' => $beforeBowlerPlayerId ?: null,
             'out_player_id' => $outPlayerId,
             'wicket_type' => $wicketType,
+            'fielder_player_id' => $fielderPlayerId,
             'at' => now()->toDateTimeString(),
         ]);
         $this->ballHistory = array_slice($this->ballHistory, 0, 120);
-
-        if ($this->fixture->status === 'scheduled') {
-            $this->fixture->update(['status' => 'live']);
-            $this->fixture->refresh();
-        }
-
-        $secondInningsFinished = false;
-        if ($inningsKey === 2) {
-            $in2Runs = (int) ($this->innings[2]['runs'] ?? 0);
-            $in2Wickets = (int) ($this->innings[2]['wickets'] ?? 0);
-            $firstInningsRuns = (int) ($this->innings[1]['runs'] ?? 0);
-            $target = (int) ($this->targetRuns ?: ($firstInningsRuns > 0 ? ($firstInningsRuns + 1) : 0));
-
-            $isAllOut = $in2Wickets >= 10;
-            $targetReached = $target > 0 && $in2Runs >= $target;
-
-            $secondInningsFinished = $isAllOut || $targetReached;
-        }
 
         $this->saveCricket();
 
@@ -701,40 +954,48 @@ class Scorer extends Component
 
     public function undoLastBall(): void
     {
-        if ($this->rejectIfLocked()) {
-            return;
+        if ((string) $this->fixture->status === 'completed') {
+            $this->setMatchStatus('live');
         }
 
         if (! $this->isCricket || empty($this->ballHistory)) {
             return;
         }
 
-        $last = array_shift($this->ballHistory);
-        $inning = (int) ($last['inning'] ?? 0);
+        try {
+            $last = array_shift($this->ballHistory);
+            $inning = (int) ($last['inning'] ?? 0);
 
-        if ($inning <= 0 || ! isset($this->innings[$inning])) {
-            return;
-        }
-
-        $this->innings[$inning] = (array) ($last['before'] ?? $this->innings[$inning]);
-        $this->overBreakdown[$inning] = (array) ($last['before_over_breakdown'] ?? ($this->overBreakdown[$inning] ?? []));
-        $this->partnerships[$inning] = (array) ($last['before_partnership'] ?? ($this->partnerships[$inning] ?? ['current_runs' => 0, 'current_balls' => 0, 'stands' => []]));
-        $this->strikerPlayerId = (int) ($last['before_striker_player_id'] ?? $this->strikerPlayerId);
-        $this->nonStrikerPlayerId = (int) ($last['before_non_striker_player_id'] ?? $this->nonStrikerPlayerId);
-        $this->striker = (string) ($last['before_striker'] ?? $this->striker);
-        $this->nonStriker = (string) ($last['before_non_striker'] ?? $this->nonStriker);
-
-        $eventText = (string) ($last['event_text'] ?? '');
-        if ($eventText !== '') {
-            $idx = array_search($eventText, $this->recentEvents, true);
-            if ($idx !== false) {
-                unset($this->recentEvents[$idx]);
-                $this->recentEvents = array_values($this->recentEvents);
+            if ($inning <= 0 || ! isset($this->innings[$inning])) {
+                return;
             }
-        }
 
-        $this->saveCricket();
-        $this->dispatch('toast', message: 'Last ball undone.');
+            $this->innings[$inning] = (array) ($last['before'] ?? $this->innings[$inning]);
+            $this->overBreakdown[$inning] = (array) ($last['before_over_breakdown'] ?? ($this->overBreakdown[$inning] ?? []));
+            $this->partnerships[$inning] = (array) ($last['before_partnership'] ?? ($this->partnerships[$inning] ?? ['current_runs' => 0, 'current_balls' => 0, 'stands' => []]));
+            $this->strikerPlayerId = (int) ($last['before_striker_player_id'] ?? $this->strikerPlayerId);
+            $this->nonStrikerPlayerId = (int) ($last['before_non_striker_player_id'] ?? $this->nonStrikerPlayerId);
+            $this->striker = (string) ($last['before_striker'] ?? $this->striker);
+            $this->nonStriker = (string) ($last['before_non_striker'] ?? $this->nonStriker);
+            $this->bowlerPlayerId = (int) ($last['before_bowler_player_id'] ?? $this->bowlerPlayerId);
+            $this->bowler = (string) ($last['before_bowler'] ?? $this->bowler);
+            $this->showBowlerModal = false;
+
+            $eventText = (string) ($last['event_text'] ?? '');
+            if ($eventText !== '') {
+                $idx = array_search($eventText, $this->recentEvents, true);
+                if ($idx !== false) {
+                    unset($this->recentEvents[$idx]);
+                    $this->recentEvents = array_values($this->recentEvents);
+                }
+            }
+
+            $this->saveCricket();
+            $this->dispatch('toast', message: 'Last ball undone.');
+        } catch (\Throwable $e) {
+            $this->bootCricketState();
+            $this->dispatch('toast', message: 'Undo failed. State was restored; please try again.');
+        }
     }
 
     public function switchInnings(int $innings): void
@@ -743,11 +1004,47 @@ class Scorer extends Component
             return;
         }
 
+        if ($this->isCricket && ! $this->ensureCricketLiveScoring()) {
+            return;
+        }
+
         if (! in_array($innings, [1, 2], true)) {
             return;
         }
 
         $this->currentInnings = $innings;
+        $this->syncCurrentInningsTeams();
+        $this->showBowlerModal = false;
+        $this->saveCricket();
+    }
+
+    public function confirmNextBowler(): void
+    {
+        if ($this->rejectIfLocked() || ! $this->isCricket) {
+            return;
+        }
+
+        if (! $this->ensureCricketLiveScoring()) {
+            return;
+        }
+
+        $this->validate([
+            'bowlerPlayerId' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $exists = Player::query()
+            ->where('tournament_id', (int) $this->fixture->tournament_id)
+            ->where('sold_team_id', (int) $this->bowlingTeamId)
+            ->whereKey($this->bowlerPlayerId)
+            ->exists();
+
+        if (! $exists) {
+            $this->addError('bowlerPlayerId', 'Bowler must belong to current bowling team.');
+            return;
+        }
+
+        $this->bowler = (string) ($this->playerNameById($this->bowlerPlayerId) ?? '');
+        $this->showBowlerModal = false;
         $this->saveCricket();
     }
 
@@ -758,6 +1055,10 @@ class Scorer extends Component
         }
 
         if (! $this->isCricket) {
+            return;
+        }
+
+        if (! $this->ensureCricketLiveScoring()) {
             return;
         }
 
@@ -933,6 +1234,20 @@ class Scorer extends Component
         $batters = [];
         $bowlers = [];
 
+        foreach (($playersByTeam[$battingTeamId] ?? collect()) as $p) {
+            $pid = (int) $p->id;
+            $batters[$pid] = [
+                'name' => (string) $p->name,
+                'runs' => 0,
+                'balls' => 0,
+                'fours' => 0,
+                'sixes' => 0,
+                'out' => false,
+                'dismissal' => null,
+                'dnb' => true,
+            ];
+        }
+
         $dismissalText = static function (?string $type): string {
             $t = (string) ($type ?? 'out');
             return strtoupper(str_replace('_', ' ', $t));
@@ -970,6 +1285,7 @@ class Scorer extends Component
                 if ($isLegal) {
                     $batters[$strikerId]['balls'] += 1;
                 }
+                $batters[$strikerId]['dnb'] = false;
                 if ($runsOffBat === 4) {
                     $batters[$strikerId]['fours'] += 1;
                 }
@@ -988,11 +1304,13 @@ class Scorer extends Component
                         'sixes' => 0,
                         'out' => true,
                         'dismissal' => $dismissalText($wicketType),
+                        'dnb' => true,
                     ];
                 } else {
                     $batters[$outPlayerId]['out'] = true;
                     $batters[$outPlayerId]['dismissal'] = $dismissalText($wicketType);
                 }
+                $batters[$outPlayerId]['dnb'] = false;
             }
 
             if ($bowlerId > 0) {
@@ -1062,6 +1380,10 @@ class Scorer extends Component
             return;
         }
 
+        if (! $this->ensureCricketLiveScoring()) {
+            return;
+        }
+
         $this->validate([
             'currentInnings' => ['required', 'integer', 'in:1,2'],
             'innings.1.batting_team_id' => ['nullable', 'integer'],
@@ -1085,6 +1407,10 @@ class Scorer extends Component
             'strikerPlayerId' => ['nullable', 'integer', 'min:0'],
             'nonStrikerPlayerId' => ['nullable', 'integer', 'min:0'],
             'bowlerPlayerId' => ['nullable', 'integer', 'min:0'],
+            'resultMode' => ['required', 'in:auto,manual_runs,manual_wickets,tie_no_result'],
+            'resultWinnerTeamId' => ['nullable', 'integer', 'min:0'],
+            'resultMargin' => ['nullable', 'integer', 'min:0'],
+            'resultSpecial' => ['nullable', 'in:tie,no_result'],
         ]);
 
         $this->striker = (string) ($this->playerNameById($this->strikerPlayerId) ?? '');
@@ -1121,9 +1447,14 @@ class Scorer extends Component
         $resultText = $this->resultText ?: null;
         $outcome = ['winner_team_id' => null, 'loser_team_id' => null];
         if ($this->fixture->status === 'completed') {
-            $resultText = $this->generateAutoResult() ?: $resultText;
+            $this->validateResultControls();
+            $declared = $this->resolveDeclaredResult();
+            $resultText = $declared['text'] ?: $resultText;
             $this->resultText = (string) ($resultText ?? '');
-            $outcome = $this->resolveOutcomeTeamIds();
+            $outcome = [
+                'winner_team_id' => $declared['winner_team_id'],
+                'loser_team_id' => $declared['loser_team_id'],
+            ];
         }
 
         $this->fixture->update([
